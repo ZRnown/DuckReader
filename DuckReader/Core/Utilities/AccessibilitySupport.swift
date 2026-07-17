@@ -174,6 +174,8 @@ public enum DynamicFontScale: Sendable {
 public struct ColorBlindnessFilter: Sendable {
     let mode: AccessibilityConfig.ColorBlindMode
 
+    private static let sharedContext = CIContext()
+
     public func apply(to image: CGImage) -> CGImage? {
         guard let filterName = mode.filterName else { return image }
 
@@ -188,7 +190,7 @@ public struct ColorBlindnessFilter: Sendable {
 
         guard let output = filter.outputImage else { return image }
 
-        let ctx = CIContext()
+        let ctx = Self.sharedContext
         return ctx.createCGImage(output, from: output.extent)
     }
 }

@@ -443,7 +443,7 @@ extension LibraryView {
                 Task {
                     let issues = await viewModel.runIntegrityCheck()
                     if !issues.isEmpty {
-                        print("[BatchOps] Found \(issues.count) issues")
+                        DuckLog.debug("Found \(issues.count) issues", category: "BatchOps")
                     }
                 }
             } label: {

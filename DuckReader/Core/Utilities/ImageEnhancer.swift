@@ -92,7 +92,7 @@ actor ImageEnhancer {
         let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1000
         if elapsed > 50 {
             // 超过50ms记录日志（用于性能监控）
-            print("[ImageEnhancer] 处理耗时 \(Int(elapsed))ms, filters: \(steps.map(\.rawValue).joined(separator: ", "))")
+            DuckLog.debug("处理耗时 \(Int(elapsed))ms, filters: \(steps.map(\.rawValue).joined(separator: ", "))", category: "ImageEnhancer")
         }
 
         return current

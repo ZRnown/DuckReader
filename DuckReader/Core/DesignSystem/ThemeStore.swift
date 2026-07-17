@@ -179,7 +179,7 @@ public final class ThemeStore: ObservableObject, Sendable {
             currentIcon = icon
             save()
         } catch {
-            print("[ThemeStore] Failed to set icon: \(error)")
+            DuckLog.error("Failed to set icon: \(error)", category: "ThemeStore")
         }
     }
 

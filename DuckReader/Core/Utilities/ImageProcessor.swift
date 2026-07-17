@@ -67,6 +67,7 @@ public enum ThumbnailGenerator: Sendable {
 
 /// 图像处理器：裁剪白边、基础增强、格式转换
 public enum ImageProcessor: Sendable {
+    private static let sharedContext = CIContext()
     
     // MARK: Downsampling (ImageIO-based, memory-efficient)
 
@@ -99,7 +100,7 @@ public enum ImageProcessor: Sendable {
             }
             
             // 检测白边边缘
-            let context = CIContext()
+            let context = sharedContext
             guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
                 throw ImageError.processingFailed
             }
@@ -113,9 +114,23 @@ public enum ImageProcessor: Sendable {
             }
             
             let bytesPerPixel = cgImage.bitsPerPixel / 8
-            
             // 白色阈值（接近白色视为白边）
             let threshold: UInt8 = 240
+
+            // Early-exit: sample 8 edge points. If none are white, skip O(n^2) border scan.
+            if bytesPerPixel >= 3 {
+                let midX = width / 2, midY = height / 2
+                let samples = [
+                    (0, 0), (midX, 0), (width - 1, 0),
+                    (0, height - 1), (midX, height - 1), (width - 1, height - 1),
+                    (0, midY), (width - 1, midY)
+                ]
+                let hasWhiteEdge = samples.contains { x, y in
+                    let off = (y * cgImage.bytesPerRow) + (x * bytesPerPixel)
+                    return data[off] >= threshold && data[off + 1] >= threshold && data[off + 2] >= threshold
+                }
+                guard hasWhiteEdge else { return imageData }
+            }
             
             // 从四个方向扫描非白像素
             var left = 0, right = width - 1, top = 0, bottom = height - 1
@@ -221,7 +236,7 @@ public enum ImageProcessor: Sendable {
                     kCIInputIntensityKey: 0.5
                 ])
             
-            let context = CIContext()
+            let context = sharedContext
             guard let cgImage = context.createCGImage(filters, from: filters.extent) else {
                 throw ImageError.processingFailed
             }

@@ -357,7 +357,7 @@ public final class ReadingStatsEngine: ObservableObject, Sendable {
             try JSONEncoder().encode(sessions).write(to: sessionsURL, options: .atomic)
             try JSONEncoder().encode(goals).write(to: goalsURL, options: .atomic)
         } catch {
-            print("[StatsEngine] Save failed: \(error)")
+            DuckLog.error("Save failed: \(error)", category: "StatsEngine")
         }
     }
 

@@ -515,7 +515,7 @@ public final class AnnotationStore: ObservableObject, Sendable {
             let data = try JSONEncoder().encode(annotations)
             try data.write(to: storageURL, options: .atomic)
         } catch {
-            print("[AnnotationStore] Save failed: \(error)")
+            DuckLog.error("Save failed: \(error)", category: "AnnotationStore")
         }
     }
 
@@ -524,7 +524,7 @@ public final class AnnotationStore: ObservableObject, Sendable {
         do {
             annotations = try JSONDecoder().decode([Annotation].self, from: data)
         } catch {
-            print("[AnnotationStore] Load failed: \(error)")
+            DuckLog.error("Load failed: \(error)", category: "AnnotationStore")
         }
     }
 }

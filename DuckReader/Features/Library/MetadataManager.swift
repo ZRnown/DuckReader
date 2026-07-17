@@ -314,7 +314,7 @@ public final class MetadataStore: ObservableObject, Sendable {
             let data = try JSONEncoder().encode(metadata)
             try data.write(to: storageURL, options: .atomic)
         } catch {
-            print("[MetadataStore] Save failed: \(error)")
+            DuckLog.error("Save failed: \(error)", category: "MetadataStore")
         }
     }
 
@@ -323,7 +323,7 @@ public final class MetadataStore: ObservableObject, Sendable {
         do {
             metadata = try JSONDecoder().decode([UUID: EnhancedMetadata].self, from: data)
         } catch {
-            print("[MetadataStore] Load failed: \(error)")
+            DuckLog.error("Load failed: \(error)", category: "MetadataStore")
         }
     }
 }

@@ -230,10 +230,10 @@ public struct EInkOptimizer: Sendable {
 
         // Allocate error buffer
         let rowBytes = context.bytesPerRow
-        var errors = [Double](repeating: 0, count: width * height)
+        var errors = [Float](repeating: 0, count: width * height)
 
         // Floyd-Steinberg coefficients
-        let fsKernel: [(dx: Int, dy: Int, weight: Double)] = [
+        let fsKernel: [(dx: Int, dy: Int, weight: Float)] = [
             (1, 0, 7.0/16.0), (-1, 1, 3.0/16.0),
             (0, 1, 5.0/16.0), (1, 1, 1.0/16.0)
         ]
@@ -241,9 +241,9 @@ public struct EInkOptimizer: Sendable {
         for y in 0..<height {
             for x in 0..<width {
                 let idx = y * rowBytes + x
-                let oldPixel = Double(data[idx]) + errors[y * width + x]
+                let oldPixel = Float(data[idx]) + errors[y * width + x]
                 let newPixel: UInt8 = oldPixel > 127 ? 255 : 0
-                let quantError = oldPixel - Double(newPixel)
+                let quantError = oldPixel - Float(newPixel)
 
                 data[idx] = newPixel
 
@@ -280,9 +280,9 @@ public struct EInkOptimizer: Sendable {
         }
 
         let rowBytes = context.bytesPerRow
-        var errors = [Double](repeating: 0, count: width * height)
+        var errors = [Float](repeating: 0, count: width * height)
 
-        let atkinsonKernel: [(dx: Int, dy: Int, weight: Double)] = [
+        let atkinsonKernel: [(dx: Int, dy: Int, weight: Float)] = [
             (1, 0, 1.0/8.0), (2, 0, 1.0/8.0),
             (-1, 1, 1.0/8.0), (0, 1, 1.0/8.0), (1, 1, 1.0/8.0),
             (0, 2, 1.0/8.0)
@@ -291,9 +291,9 @@ public struct EInkOptimizer: Sendable {
         for y in 0..<height {
             for x in 0..<width {
                 let idx = y * rowBytes + x
-                let oldPixel = Double(data[idx]) + errors[y * width + x]
+                let oldPixel = Float(data[idx]) + errors[y * width + x]
                 let newPixel: UInt8 = oldPixel > 127 ? 255 : 0
-                let quantError = oldPixel - Double(newPixel)
+                let quantError = oldPixel - Float(newPixel)
 
                 data[idx] = newPixel
 
@@ -341,8 +341,8 @@ public struct EInkOptimizer: Sendable {
         for y in 0..<height {
             for x in 0..<width {
                 let idx = y * rowBytes + x
-                let threshold = (Double(bayer4x4[(y & 3) * 4 + (x & 3)]) + 0.5) / 16.0 * 255.0
-                data[idx] = Double(data[idx]) > threshold ? 255 : 0
+                let threshold = (Float(bayer4x4[(y & 3) * 4 + (x & 3)]) + 0.5) / 16.0 * 255.0
+                data[idx] = Float(data[idx]) > threshold ? 255 : 0
             }
         }
 

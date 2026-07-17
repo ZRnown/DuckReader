@@ -125,13 +125,13 @@ public final class WebDAVSyncService: ObservableObject {
 
     // MARK: - Private
 
-    private func makeRequest(config: WebDAVConfig, path: String, method: String) -> URLRequest {
+    private func makeRequest(config: WebDAVConfig, path: String, method: String) throws -> URLRequest {
         let urlString = config.serverURL.hasSuffix("/")
             ? config.serverURL + (path.hasPrefix("/") ? String(path.dropFirst()) : path)
             : config.serverURL + path
 
         guard let url = URL(string: urlString) else {
-            fatalError("Invalid WebDAV URL: \(urlString)")
+            throw WebDAVError.invalidURL
         }
 
         var request = URLRequest(url: url)
@@ -147,7 +147,7 @@ public final class WebDAVSyncService: ObservableObject {
     }
 
     private func upload(config: WebDAVConfig, path: String, data: Data) async throws {
-        var request = makeRequest(config: config, path: path, method: "PUT")
+        var request = try makeRequest(config: config, path: path, method: "PUT")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
 
         let (_, response) = try await URLSession.shared.upload(for: request, from: data)
@@ -158,7 +158,7 @@ public final class WebDAVSyncService: ObservableObject {
     }
 
     private func download(config: WebDAVConfig, path: String, method: String = "GET") async throws -> Data {
-        var request = makeRequest(config: config, path: path, method: method)
+        var request = try makeRequest(config: config, path: path, method: method)
         if method == "PROPFIND" {
             request.setValue("1", forHTTPHeaderField: "Depth")
         }
@@ -172,7 +172,7 @@ public final class WebDAVSyncService: ObservableObject {
     }
 
     private func createDirectory(config: WebDAVConfig, path: String) async throws {
-        var request = makeRequest(config: config, path: path, method: "MKCOL")
+        var request = try makeRequest(config: config, path: path, method: "MKCOL")
         let (_, response) = try await URLSession.shared.data(for: request)
 
         // 405 = already exists, which is fine
@@ -236,6 +236,7 @@ public struct WebDAVFile: Codable, Sendable, Identifiable {
 
 public enum WebDAVError: LocalizedError {
     case notConfigured
+    case invalidURL
     case uploadFailed
     case downloadFailed
     case createFolderFailed
@@ -245,6 +246,7 @@ public enum WebDAVError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notConfigured: return "WebDAV 未配置"
+        case .invalidURL: return "无效的 WebDAV URL"
         case .uploadFailed: return "上传失败"
         case .downloadFailed: return "下载失败"
         case .createFolderFailed: return "创建远程文件夹失败"

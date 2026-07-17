@@ -264,7 +264,7 @@ public final class FontManager: ObservableObject, Sendable {
             let data = try JSONEncoder().encode(importedFonts)
             try data.write(to: fontsManifestURL, options: .atomic)
         } catch {
-            print("[FontManager] Failed to save manifest: \(error)")
+            DuckLog.error("Failed to save manifest: \(error)", category: "FontManager")
         }
     }
 
@@ -273,7 +273,7 @@ public final class FontManager: ObservableObject, Sendable {
         do {
             importedFonts = try JSONDecoder().decode([CustomFontDescriptor].self, from: data)
         } catch {
-            print("[FontManager] Failed to load manifest: \(error)")
+            DuckLog.error("Failed to load manifest: \(error)", category: "FontManager")
         }
     }
 }

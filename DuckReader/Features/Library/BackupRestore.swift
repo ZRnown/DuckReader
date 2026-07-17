@@ -333,7 +333,7 @@ public final class BackupRestoreEngine: ObservableObject, Sendable {
             }
             .sorted { $0.createdAt > $1.createdAt }
         } catch {
-            print("[BackupRestore] Scan failed: \(error)")
+            DuckLog.error("Scan failed: \(error)", category: "BackupRestore")
         }
     }
 }

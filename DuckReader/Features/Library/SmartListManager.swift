@@ -372,7 +372,7 @@ public final class SmartListStore: ObservableObject, Sendable {
             let data = try JSONEncoder().encode(lists)
             try data.write(to: storageURL, options: .atomic)
         } catch {
-            print("[SmartListStore] Save failed: \(error)")
+            DuckLog.error("Save failed: \(error)", category: "SmartListStore")
         }
     }
 

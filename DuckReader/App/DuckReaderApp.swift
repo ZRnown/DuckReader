@@ -8,7 +8,7 @@ import WidgetKit
 struct DuckReaderApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var swiftDataStack: SwiftDataStack
+    @State private var swiftDataStack: SwiftDataStack?
     @State private var storeManager: StoreManager
 
     // Observable services — shared across the app
@@ -22,15 +22,16 @@ struct DuckReaderApp: App {
 
     // Shared services
     private let archiveParser: ArchiveParser
-    private let libraryRepository: LibraryRepository
+    private let libraryRepository: LibraryRepository?
 
     init() {
         // Initialize data stack
-        let stack: SwiftDataStack
+        let stack: SwiftDataStack?
         do {
             stack = try SwiftDataStack()
         } catch {
-            fatalError("Failed to initialize SwiftData: \(error.localizedDescription)")
+            DuckLog.fault("Failed to initialize SwiftData: \(error.localizedDescription)", category: "App")
+            stack = nil
         }
         self.swiftDataStack = stack
 
@@ -38,12 +39,16 @@ struct DuckReaderApp: App {
         let parser = ArchiveParser()
         self.archiveParser = parser
 
-        let repository = LibraryRepository(modelContext: stack.mainContext)
-        self.libraryRepository = repository
+        if let stack {
+            let repository = LibraryRepository(modelContext: stack.mainContext)
+            self.libraryRepository = repository
 
-        // Wire shared engines to the data store
-        achievementEngine.configure(modelContext: stack.mainContext)
-        statsEngine.configure(modelContext: stack.mainContext)
+            // Wire shared engines to the data store
+            achievementEngine.configure(modelContext: stack.mainContext)
+            statsEngine.configure(modelContext: stack.mainContext)
+        } else {
+            self.libraryRepository = nil
+        }
 
         // Load persisted achievements
         // Defer to background to avoid blocking app launch
@@ -66,20 +71,27 @@ struct DuckReaderApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if privacyLock.anyLockActive {
-                PrivacyLockScreenView()
-                    .transition(.opacity)
-                    .animation(DuckSpring.fluid, value: privacyLock.anyLockActive)
+            if let stack = swiftDataStack {
+                Group {
+                    if privacyLock.anyLockActive {
+                        PrivacyLockScreenView()
+                            .transition(.opacity)
+                            .animation(DuckSpring.fluid, value: privacyLock.anyLockActive)
+                    } else {
+                        ContentView()
+                            .environment(\.modelContext, stack.mainContext)
+                            .environmentObject(achievementEngine)
+                            .environmentObject(statsEngine)
+                            .environmentObject(privacyLock)
+                            .environmentObject(cloudSync)
+                            .environmentObject(readingPresets)
+                            .environmentObject(translationBubble)
+                            .environmentObject(scanAssistant)
+                    }
+                }
+                .modelContainer(stack.container)
             } else {
-                ContentView()
-                    .environment(\.modelContext, swiftDataStack.mainContext)
-                    .environmentObject(achievementEngine)
-                    .environmentObject(statsEngine)
-                    .environmentObject(privacyLock)
-                    .environmentObject(cloudSync)
-                    .environmentObject(readingPresets)
-                    .environmentObject(translationBubble)
-                    .environmentObject(scanAssistant)
+                SwiftDataErrorView()
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
@@ -108,7 +120,6 @@ struct DuckReaderApp: App {
                 break
             }
         }
-        .modelContainer(swiftDataStack.container)
     }
 }
 
@@ -322,6 +333,27 @@ struct ContentView_Previews: PreviewProvider {
             .environmentObject(ReadingStatsEngine.shared)
             .environmentObject(PrivacyLockManager.shared)
             .environmentObject(CloudSyncService.shared)
+    }
+}
+// MARK: - Fatal Error Fallback
+
+private struct SwiftDataErrorView: View {
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 48))
+                .foregroundColor(.orange)
+            Text("数据库初始化失败")
+                .font(.title2).fontWeight(.semibold)
+            Text("请重启应用。如果问题持续，请尝试重新安装。")
+                .font(.body).foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Button("重试") { exit(0) }
+                .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
     }
 }
 #endif

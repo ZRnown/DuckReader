@@ -249,7 +249,7 @@ public final class VocabularyManager: ObservableObject, Sendable {
             let data = try JSONEncoder().encode(entries)
             try data.write(to: storageURL, options: .atomic)
         } catch {
-            print("[VocabularyManager] Save failed: \(error)")
+            DuckLog.error("Save failed: \(error)", category: "VocabularyManager")
         }
     }
 
@@ -258,7 +258,7 @@ public final class VocabularyManager: ObservableObject, Sendable {
         do {
             entries = try JSONDecoder().decode([VocabularyEntry].self, from: data)
         } catch {
-            print("[VocabularyManager] Load failed: \(error)")
+            DuckLog.error("Load failed: \(error)", category: "VocabularyManager")
         }
     }
 }

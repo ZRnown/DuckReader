@@ -43,7 +43,6 @@ public final class ReaderInputHandler: ObservableObject {
     @discardableResult
     public func handleKeyPress(_ key: String, modifiers: UIKeyModifierFlags = []) -> Bool {
         guard keyboardEnabled else { return false }
-        guard !isDebounced(key) else { return true }
 
         switch key {
         // Page navigation
@@ -250,8 +249,6 @@ public final class ReaderInputHandler: ObservableObject {
         debouncer[key] = Date()
         return false
     }
-
-    private func isDebounced(_ key: String) -> Bool { false }
 }
 
 // MARK: - UIKit Keyboard Handler (for UIKeyCommand bridge)

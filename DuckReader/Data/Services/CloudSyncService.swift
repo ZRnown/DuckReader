@@ -220,7 +220,7 @@ public final class CloudSyncService: ObservableObject {
         do {
             _ = try await database.save(subscription)
         } catch {
-            print("[CloudSync] Subscription setup failed: \(error)")
+            DuckLog.error("Subscription setup failed: \(error)", category: "CloudSync")
         }
     }
 }

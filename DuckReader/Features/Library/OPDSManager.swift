@@ -164,7 +164,7 @@ public final class OPDSConnectionManager: ObservableObject, Sendable {
             let data = try JSONEncoder().encode(connections)
             try data.write(to: storageURL, options: .atomic)
         } catch {
-            print("[OPDSManager] Save failed: \(error)")
+            DuckLog.error("Save failed: \(error)", category: "OPDSManager")
         }
     }
 
@@ -173,7 +173,7 @@ public final class OPDSConnectionManager: ObservableObject, Sendable {
         do {
             connections = try JSONDecoder().decode([OPDSConnection].self, from: data)
         } catch {
-            print("[OPDSManager] Load failed: \(error)")
+            DuckLog.error("Load failed: \(error)", category: "OPDSManager")
         }
     }
 }

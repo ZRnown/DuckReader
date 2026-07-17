@@ -261,7 +261,7 @@ public final class GestureCustomizationStore: ObservableObject, Sendable {
             let data = try JSONEncoder().encode(zones)
             try data.write(to: storageURL, options: .atomic)
         } catch {
-            print("[GestureStore] Save failed: \(error)")
+            DuckLog.error("Save failed: \(error)", category: "GestureStore")
         }
     }
 
@@ -270,7 +270,7 @@ public final class GestureCustomizationStore: ObservableObject, Sendable {
         do {
             zones = try JSONDecoder().decode([GestureZone].self, from: data)
         } catch {
-            print("[GestureStore] Load failed: \(error)")
+            DuckLog.error("Load failed: \(error)", category: "GestureStore")
         }
     }
 }

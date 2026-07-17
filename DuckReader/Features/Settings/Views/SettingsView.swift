@@ -69,7 +69,7 @@ public final class SettingsViewModel: Sendable {
         do {
             try await calibreIntegration.connect(to: server)
         } catch {
-            print("[Calibre] Connect failed: \(error)")
+            DuckLog.error("Connect failed: \(error)", category: "Calibre")
         }
     }
     
@@ -77,7 +77,7 @@ public final class SettingsViewModel: Sendable {
         do {
             try await calibreIntegration.syncAllMetadata()
         } catch {
-            print("[Calibre] Sync failed: \(error)")
+            DuckLog.error("Sync failed: \(error)", category: "Calibre")
         }
     }
     

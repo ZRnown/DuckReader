@@ -441,10 +441,8 @@ private struct StatItem: View {
         }
     }
 }
-
 // Preview helpers
 #if DEBUG
-import SwiftUI
 
 struct ReadingCardGenerator_Previews: PreviewProvider {
     static var previews: some View {
