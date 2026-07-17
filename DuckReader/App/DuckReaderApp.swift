@@ -16,6 +16,9 @@ struct DuckReaderApp: App {
     @StateObject private var achievementEngine = AchievementEngine.shared
     @StateObject private var statsEngine = ReadingStatsEngine.shared
     @StateObject private var cloudSync = CloudSyncService.shared
+    @StateObject private var readingPresets = ReadingPresets()
+    @StateObject private var translationBubble = AITranslationBubble()
+    @StateObject private var scanAssistant = ScanAssistant()
 
     // Shared services
     private let archiveParser: ArchiveParser
@@ -74,6 +77,9 @@ struct DuckReaderApp: App {
                     .environmentObject(statsEngine)
                     .environmentObject(privacyLock)
                     .environmentObject(cloudSync)
+                    .environmentObject(readingPresets)
+                    .environmentObject(translationBubble)
+                    .environmentObject(scanAssistant)
             }
         }
         .onChange(of: scenePhase) { _, newPhase in

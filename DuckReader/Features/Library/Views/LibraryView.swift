@@ -15,11 +15,18 @@ public final class LibraryViewModel: Sendable {
     public var selectedTag: Tag?
     public var isImporting = false
     public var importProgress: Double = 0  // 0-1
+    public var recommendedNext: Book?
+    public var detectedSeries: [String: [Book]] = [:]
+    public var seriesNames: [String] { Array(detectedSeries.keys).sorted() }
     
     private let repository: LibraryRepositoryProtocol
     private let parser: ArchiveParserProtocol
     private let statsEngine: ReadingStatsEngine?
     private let achievementEngine: AchievementEngine?
+    public let fullTextSearch = FullTextSearch()
+    public let continueReading = ContinueReadingSmart()
+    public let seriesManager = SeriesManager()
+    public let batchOps: BatchOperations
     
     public init(
         repository: LibraryRepositoryProtocol,
@@ -31,6 +38,7 @@ public final class LibraryViewModel: Sendable {
         self.parser = parser
         self.statsEngine = statsEngine
         self.achievementEngine = achievementEngine
+        self.batchOps = BatchOperations()
     }
     
     // MARK: - Data Loading
@@ -41,11 +49,22 @@ public final class LibraryViewModel: Sendable {
         
         do {
             if !searchQuery.isEmpty {
-                books = try await repository.search(query: searchQuery)
+                books = await fullTextResults(query: searchQuery, books: books)
+                // Fallback to repository search if no local results
+                if books.isEmpty {
+                    books = try await repository.search(query: searchQuery)
+                }
             } else if let tag = selectedTag {
                 books = try await repository.fetchByTag(tag)
             } else {
                 books = try await repository.fetchAll(sortBy: selectedSort)
+            }
+            
+            // Refresh smart features after load
+            if searchQuery.isEmpty {
+                rebuildSearchIndex(for: books)
+                refreshDetectedSeries()
+                refreshContinueReading()
             }
         } catch {
             self.error = error
@@ -155,6 +174,13 @@ public struct LibraryView: View {
                 } else {
                     bookGrid
                 }
+                
+                // Smart recommendations
+                if let recommended = viewModel.recommendedNext {
+                    recommendedNextRow(book: recommended)
+                }
+                
+                bookGrid
             }
             .navigationTitle(L10n.appName)
             .searchable(text: $viewModel.searchQuery)
@@ -168,6 +194,9 @@ public struct LibraryView: View {
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    batchMenu
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     sortMenu
                 }
@@ -360,6 +389,81 @@ extension LibrarySortOption {
         case .recentlyOpened: "clock"
         case .recentlyAdded: "plus.circle"
         case .progress: "chart.line.uptrend.xyaxis"
+        }
+    }
+}
+
+// MARK: - Batch & Recommendations
+
+extension LibraryView {
+
+    private func recommendedNextRow(book: Book) -> some View {
+        HStack {
+            Image(systemName: "book.pages.fill")
+                .foregroundColor(.accentColor)
+                .font(.title3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.libraryContinueReading)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(book.title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+            }
+            Spacer()
+            if book.totalPages > 0 {
+                Text("\(Int(Double(book.currentPage) / Double(book.totalPages) * 100))%")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal)
+    }
+
+    private var batchMenu: some View {
+        Menu {
+            Button {
+                Task { await viewModel.runDedup() }
+            } label: {
+                Label("Deduplicate Books", systemImage: "rectangle.on.rectangle.slash")
+            }
+
+            Button {
+                Task {
+                    let issues = await viewModel.runIntegrityCheck()
+                    if !issues.isEmpty {
+                        print("[BatchOps] Found \(issues.count) issues")
+                    }
+                }
+            } label: {
+                Label("Integrity Check", systemImage: "checkmark.shield")
+            }
+
+            if !viewModel.seriesNames.isEmpty {
+                Divider()
+                Text("Series").font(.caption)
+                ForEach(viewModel.seriesNames, id: \.self) { name in
+                    Button {
+                        if let books = viewModel.detectedSeries[name] {
+                            viewModel.books = books
+                        }
+                    } label: {
+                        Label(name, systemImage: "books.vertical")
+                    }
+                }
+                Button {
+                    viewModel.refreshDetectedSeries()
+                } label: {
+                    Label("Show All Books", systemImage: "list.bullet")
+                }
+            }
+        } label: {
+            Label("Batch", systemImage: "wrench.and.screwdriver")
         }
     }
 }

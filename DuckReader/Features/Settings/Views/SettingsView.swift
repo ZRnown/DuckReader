@@ -27,6 +27,21 @@ public final class SettingsViewModel: Sendable {
     public var isCloudSyncEnabled: Bool = false
     public var syncProvider: SyncProvider = .icloud
     
+    // E-Ink
+    public var eInkEnabled: Bool = false
+    public var eInkPreset: EInkOptimizer.Preset = .kindleBasic
+    public var eInkOptions = EInkOptimizer.Options.safeDefaults
+    
+    // Calibre
+    public var calibreEnabled: Bool = false
+    public let calibreIntegration = CalibreIntegration()
+    public var discoveredServers: [CalibreIntegration.CalibreServer] {
+        calibreIntegration.discoveredServers
+    }
+    public var calibreSyncState: CalibreIntegration.CalibreSyncState {
+        calibreIntegration.syncState
+    }
+    
     // Cache
     public var cacheSize: String = "0 MB"
     public var isClearingCache: Bool = false
@@ -41,6 +56,30 @@ public final class SettingsViewModel: Sendable {
     }
     
     // MARK: - Actions
+    
+    public func toggleCalibreDiscovery() {
+        if calibreEnabled {
+            calibreIntegration.startDiscovery()
+        } else {
+            calibreIntegration.stopDiscovery()
+        }
+    }
+    
+    public func connectToCalibre(_ server: CalibreIntegration.CalibreServer) async {
+        do {
+            try await calibreIntegration.connect(to: server)
+        } catch {
+            print("[Calibre] Connect failed: \(error)")
+        }
+    }
+    
+    public func syncCalibreMetadata() async {
+        do {
+            try await calibreIntegration.syncAllMetadata()
+        } catch {
+            print("[Calibre] Sync failed: \(error)")
+        }
+    }
     
     public func clearCache() async {
         isClearingCache = true
@@ -215,6 +254,28 @@ public struct SettingsView: View {
                     Toggle(String(localized: "settings.autoCropBorders"), isOn: $viewModel.enableAutoCropBorders)
                 }
                 
+                // MARK: E-Ink Optimization
+                Section {
+                    Toggle("E-Ink Optimization", isOn: $viewModel.eInkEnabled)
+                    
+                    if viewModel.eInkEnabled {
+                        Picker("Device Preset", selection: $viewModel.eInkPreset) {
+                            ForEach(EInkOptimizer.Preset.allCases, id: \.rawValue) { preset in
+                                Text(preset.rawValue).tag(preset)
+                            }
+                        }
+                        
+                        Picker("Dithering", selection: Binding(
+                            get: { viewModel.eInkOptions.dithering },
+                            set: { viewModel.eInkOptions.dithering = $0 }
+                        )) {
+                            ForEach(EInkOptimizer.DitherMethod.allCases, id: \.rawValue) { method in
+                                Text(method.rawValue.capitalized).tag(method)
+                            }
+                        }
+                    }
+                }
+                
                 // MARK: Privacy
                 Section(L10n.settingsPrivacy) {
                     Toggle(String(localized: "settings.privacyLockFaceID"), isOn: $viewModel.isPrivacyLockEnabled)
@@ -239,6 +300,51 @@ public struct SettingsView: View {
                             }
                         }
                     }
+                }
+                
+                // MARK: Calibre
+                Section {
+                    Toggle("Calibre Integration", isOn: $viewModel.calibreEnabled)
+                        .onChange(of: viewModel.calibreEnabled) { _, _ in
+                            viewModel.toggleCalibreDiscovery()
+                        }
+                    
+                    if viewModel.calibreEnabled && !viewModel.discoveredServers.isEmpty {
+                        ForEach(viewModel.discoveredServers) { server in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(server.name)
+                                        .font(.subheadline)
+                                    Text("\(server.host):\(server.port)")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Button("Connect") {
+                                    Task { await viewModel.connectToCalibre(server) }
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+                    }
+                    
+                    if viewModel.calibreSyncState != .idle {
+                        HStack {
+                            Text(viewModel.calibreSyncState.rawValue.capitalized)
+                                .foregroundColor(viewModel.calibreSyncState == .connected ? .green : .secondary)
+                            Spacer()
+                            if viewModel.calibreSyncState == .connected {
+                                Button("Sync Metadata") {
+                                    Task { await viewModel.syncCalibreMetadata() }
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Calibre")
                 }
                 
                 // MARK: Cache
