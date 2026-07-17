@@ -125,4 +125,9 @@ extension LibraryViewModel {
         let items = books.map(\.batchBookItem)
         return await batchOps.integrityCheck(books: items)
     }
+
+    /// 转换为 Obsidian 导出所需元数据
+    func obsidianMetadata() -> [ObsidianBookMetadata] {
+        books.map { ObsidianBookMetadata(from: $0) }
+    }
 }

@@ -336,3 +336,226 @@ extension Array where Element: Hashable {
         return filter { seen.insert($0).inserted }
     }
 }
+
+// MARK: - Directory Structure Inference Engine
+
+/// 目录结构推断规则引擎：从文件路径/folder名推断元数据（系列、卷、作者）
+/// 用户可定义自定义规则模板
+public struct DirectoryMetadataInferrer: Sendable {
+    
+    public var rules: [InferenceRule] = InferenceRule.defaultRules
+    
+    /// 单条推断规则
+    public struct InferenceRule: Identifiable, Sendable, Codable {
+        public let id: UUID
+        public let name: String
+        public let pattern: String
+        public let priority: Int
+        public var isEnabled: Bool
+        
+        public init(id: UUID = UUID(), name: String, pattern: String, priority: Int = 0, isEnabled: Bool = true) {
+            self.id = id
+            self.name = name
+            self.pattern = pattern
+            self.priority = priority
+            self.isEnabled = isEnabled
+        }
+        
+        /// 从路径提取元数据字段
+        public func extract(_ path: String) -> [String: String]? {
+            guard isEnabled,
+                  let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+                  let match = regex.firstMatch(in: path, range: NSRange(path.startIndex..., in: path)) else {
+                return nil
+            }
+            
+            var result: [String: String] = [:]
+            let nsPath = path as NSString
+            
+            for i in 0..<regex.numberOfCaptureGroups {
+                let range = match.range(at: i + 1)
+                guard range.location != NSNotFound, range.length > 0 else { continue }
+                let value = nsPath.substring(with: range)
+                
+                // 推断字段类型
+                if let _ = Double(value), value.allSatisfy({ $0.isNumber || $0 == "." }) {
+                    result["seriesIndex"] = value
+                } else if value.contains(",") || !value.contains(".") {
+                    result["label_\(i)"] = value
+                } else {
+                    result["label_\(i)"] = value
+                }
+            }
+            
+            // 为已知模式命名字段
+            return result.isEmpty ? nil : renameGroups(result, ruleName: name)
+        }
+        
+        private func renameGroups(_ raw: [String: String], ruleName: String) -> [String: String] {
+            var result = raw
+            switch ruleName {
+            case "Series/Volume (standard)", "Series/##.ext", "Author/Series/Volume":
+                let sorted = raw.sorted { $0.key < $1.key }
+                if sorted.count >= 1 { result["series"] = sorted[0].value }
+                if sorted.count >= 2 { result["seriesIndex"] = sorted[1].value }
+                if sorted.count >= 3 { result["title"] = sorted[2].value }
+            case "Author/Series/Volume":
+                let sorted = raw.sorted { $0.key < $1.key }
+                if sorted.count >= 1 { result["author"] = sorted[0].value }
+                if sorted.count >= 2 { result["series"] = sorted[1].value }
+                if sorted.count >= 3 { result["seriesIndex"] = sorted[2].value }
+            case "Filename Series-Vol##", "## - Title filename":
+                let sorted = raw.sorted { $0.key < $1.key }
+                if sorted.count >= 1 { result["seriesIndex"] = sorted[0].value }
+                if sorted.count >= 2 { result["title"] = sorted[1].value }
+            case "Author - Title":
+                let sorted = raw.sorted { $0.key < $1.key }
+                if sorted.count >= 1 { result["author"] = sorted[0].value }
+                if sorted.count >= 2 { result["title"] = sorted[1].value }
+            case "Calibre layout":
+                let sorted = raw.sorted { $0.key < $1.key }
+                if sorted.count >= 1 { result["author"] = sorted[0].value }
+                if sorted.count >= 2 { result["title"] = sorted[1].value }
+            case "Title (Year)":
+                let sorted = raw.sorted { $0.key < $1.key }
+                if sorted.count >= 1 { result["title"] = sorted[0].value }
+            default:
+                break
+            }
+            return result
+        }
+    }
+    
+    /// 默认规则集：覆盖常见目录结构模式
+    public static let defaultRules: [InferenceRule] = [
+        InferenceRule(
+            name: "Series/Volume (standard)",
+            pattern: #"([^/\\]+)[/\\]Vol(?:ume)?[._\s]*(\d+)[/\\](.+)"#,
+            priority: 100
+        ),
+        InferenceRule(
+            name: "Author/Series/Volume",
+            pattern: #"([^/\\]+)[/\\]([^/\\]+)[/\\](?:Vol(?:ume)?[._\s]*)?(\d+)"#,
+            priority: 90
+        ),
+        InferenceRule(
+            name: "Filename Series-Vol##",
+            pattern: #"(.+?)\s*[-–—]\s*(?:Vol(?:ume)?[._\s]*)?(\d+)\.[a-z]+$"#,
+            priority: 85
+        ),
+        InferenceRule(
+            name: "## - Title filename",
+            pattern: #"^(\d+)\s*[-–—]\s*(.+)\.[a-z]+$"#,
+            priority: 80
+        ),
+        InferenceRule(
+            name: "Series/##.ext",
+            pattern: #"([^/\\]+)[/\\](\d+)\.[a-z]+$"#,
+            priority: 75
+        ),
+        InferenceRule(
+            name: "Author - Title",
+            pattern: #"([^/\\]+)\s*[-–—]\s*([^/\\]+)\.[a-z]+$"#,
+            priority: 60
+        ),
+        InferenceRule(
+            name: "Title (Year)",
+            pattern: #"(.+?)\s*\((\d{4})\)\.[a-z]+$"#,
+            priority: 55
+        ),
+        InferenceRule(
+            name: "Calibre layout",
+            pattern: #"([^/\\]+)[/\\]([^/\\]+)\s*\(\d+\)[/\\](.+\.[a-z]+)$"#,
+            priority: 95
+        ),
+    ]
+    
+    /// 从路径推断元数据
+    public func infer(from path: String) -> InferredResult {
+        let enabledRules = rules
+            .filter(\.isEnabled)
+            .sorted { $0.priority > $1.priority }
+        
+        for rule in enabledRules {
+            if let extracted = rule.extract(path) {
+                return InferredResult(
+                    path: path,
+                    matchedRule: rule.name,
+                    series: extracted["series"],
+                    seriesIndex: extracted["seriesIndex"].flatMap(Double.init),
+                    author: extracted["author"],
+                    title: extracted["title"],
+                    rawFields: extracted
+                )
+            }
+        }
+        
+        return InferredResult(path: path, matchedRule: nil)
+    }
+    
+    /// 批量推断
+    public func inferBatch(from paths: [String]) -> [InferredResult] {
+        paths.map { infer(from: $0) }
+    }
+    
+    /// 添加/更新自定义规则
+    public mutating func addRule(_ rule: InferenceRule) {
+        rules.removeAll { $0.id == rule.id }
+        rules.append(rule)
+        rules.sort { $0.priority > $1.priority }
+    }
+    
+    /// 删除规则
+    public mutating func removeRule(id: UUID) {
+        rules.removeAll { $0.id == id }
+    }
+}
+
+/// 推断结果
+public struct InferredResult: Sendable {
+    public let path: String
+    public let matchedRule: String?
+    public let series: String?
+    public let seriesIndex: Double?
+    public let author: String?
+    public let title: String?
+    public let rawFields: [String: String]
+    
+    public init(
+        path: String,
+        matchedRule: String?,
+        series: String? = nil,
+        seriesIndex: Double? = nil,
+        author: String? = nil,
+        title: String? = nil,
+        rawFields: [String: String] = [:]
+    ) {
+        self.path = path
+        self.matchedRule = matchedRule
+        self.series = series
+        self.seriesIndex = seriesIndex
+        self.author = author
+        self.title = title
+        self.rawFields = rawFields
+    }
+    
+    public var hasUsefulData: Bool {
+        matchedRule != nil && (series != nil || seriesIndex != nil || author != nil || title != nil)
+    }
+    
+    /// 构建可读摘要
+    public var summary: String {
+        var parts: [String] = []
+        if let series = series {
+            if let idx = seriesIndex {
+                parts.append("\(series) #\(String(format: "%.1f", idx))")
+            } else {
+                parts.append(series)
+            }
+        }
+        if let author = author { parts.append("by \(author)") }
+        if let title = title { parts.append(title) }
+        if let rule = matchedRule { parts.append("[\(rule)]") }
+        return parts.isEmpty ? path : parts.joined(separator: " ")
+    }
+}

@@ -150,6 +150,7 @@ public struct LibraryView: View {
     @State private var viewModel: LibraryViewModel
     @State private var showFileImporter = false
     @State private var showSettings = false
+    @State private var showHealth = false
     
     public init(viewModel: LibraryViewModel) {
         self._viewModel = State(initialValue: viewModel)
@@ -165,12 +166,7 @@ public struct LibraryView: View {
                         Task { await viewModel.loadBooks() }
                     }
                 } else if viewModel.books.isEmpty {
-                    EmptyStateView(
-                        title: L10n.libraryNoBooks,
-                        message: L10n.libraryAddFirst,
-                        actionLabel: L10n.importFiles,
-                        action: { showFileImporter = true }
-                    )
+                    EmptyLibraryView()
                 } else {
                     bookGrid
                 }
@@ -201,6 +197,11 @@ public struct LibraryView: View {
                     sortMenu
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { showHealth = true }) {
+                        Image(systemName: "heart.text.square")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showSettings = true }) {
                         Image(systemName: "gearshape")
                     }
@@ -222,6 +223,11 @@ public struct LibraryView: View {
                 allowsMultipleSelection: true
             ) { result in
                 handleImport(result)
+            }
+            .sheet(isPresented: $showHealth) {
+                LibraryHealthView(books: viewModel.books, onFixComplete: {
+                    Task { await viewModel.loadBooks() }
+                })
             }
         }
         .task {

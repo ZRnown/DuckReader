@@ -214,6 +214,97 @@ public struct AnnotationExportEngine: Sendable {
         html += "</body></html>"
         return html
     }
+   
+    // MARK: - Obsidian / Knowledge-Base Export
+    
+    /// YAML frontmatter Markdown export (Obsidian, Logseq 兼容)
+    /// 包含完整元数据：作者、标签、ISBN、阅读进度、笔记数
+    public func exportAsObsidianMarkdown(
+        annotations: [Annotation],
+        book: ObsidianBookMetadata
+    ) -> String {
+        var md = "---\n"
+        md += "title: \"\(book.title)\"\n"
+        if let author = book.author { md += "author: \"\(author)\"\n" }
+        if let isbn = book.isbn { md += "isbn: \"\(isbn)\"\n" }
+        if !book.tags.isEmpty {
+            md += "tags: [\(book.tags.map { "\"\($0)\"" }.joined(separator: ", "))]\n"
+        }
+        md += "source: \"DuckReader\"\n"
+        md += "created: \"\(dateFormatter.string(from: book.dateAdded))\"\n"
+        if let progress = book.readingProgress {
+            md += "progress: \(String(format: "%.0f", progress * 100))%\n"
+        }
+        md += "highlights: \(annotations.count)\n"
+        md += "notes: \(annotations.filter { $0.note != nil }.count)\n"
+        md += "---\n\n"
+        md += "# \(book.title)\n\n"
+        if let author = book.author { md += "by **\(author)**\n\n" }
+        md += "---\n\n"
+        
+        let grouped = Dictionary(grouping: annotations) { $0.chapterIndex }
+        for chapterIndex in grouped.keys.sorted() {
+            guard let list = grouped[chapterIndex] else { continue }
+            let chTitle = list.first?.chapterTitle ?? "Chapter \(chapterIndex + 1)"
+            md += "## \(chTitle)\n\n"
+            for a in list {
+                md += "- [\(a.color.rawValue)] \(a.text.replacingOccurrences(of: "\n", with: " "))"
+                if let note = a.note {
+                    md += "\n    - 💭 \(note)"
+                }
+                md += "\n"
+            }
+            md += "\n"
+        }
+        return md
+    }
+    
+    /// Readwise 标准 CSV 格式导出（可直接导入 readwise.io/bulk）
+    public func exportAsReadwiseCSV(
+        annotations: [Annotation],
+        bookTitle: String,
+        author: String?
+    ) -> String {
+        var csv = "Title,Author,Highlight,Note,Location,Date\n"
+        let isoFormatter = ISO8601DateFormatter()
+        for a in annotations {
+            let highlight = a.text.replacingOccurrences(of: "\"", with: "\"\"")
+            let note = (a.note ?? "").replacingOccurrences(of: "\"", with: "\"\"")
+            let loc = locationString(a.location)
+            let authorField = author?.replacingOccurrences(of: "\"", with: "\"\"") ?? ""
+            csv += "\"\(bookTitle)\",\"\(authorField)\",\"\(highlight)\",\"\(note)\",\"\(loc)\",\"\(isoFormatter.string(from: a.createdAt))\"\n"
+        }
+        return csv
+    }
+    
+    /// 整书导出：将书的元数据 + 全部标注打包为结构化 Markdown
+    public func exportFullBook(
+        annotations: [Annotation],
+        book: ObsidianBookMetadata
+    ) -> String {
+        exportAsObsidianMarkdown(annotations: annotations, book: book)
+    }
+    
+    /// 批量导出多本书为合集 Markdown（索引页 + 单页）
+    public func exportBatch(
+        books: [(metadata: ObsidianBookMetadata, annotations: [Annotation])],
+        title: String = "DuckReader Export"
+    ) -> String {
+        var md = "# \(title)\n\n"
+        md += "> Exported on \(DateFormatter.localizedString(from: Date(), dateStyle: .long, timeStyle: .short))\n\n"
+        md += "## Index\n\n"
+        md += "| # | Book | Highlights | Notes | Progress |\n"
+        md += "|---|------|------------|-------|----------|\n"
+        for (i, (meta, anns)) in books.enumerated() {
+            md += "| \(i + 1) | \(meta.title) | \(anns.count) | \(anns.filter { $0.note != nil }.count) | \(String(format: "%.0f%%", (meta.readingProgress ?? 0) * 100)) |\n"
+        }
+        md += "\n---\n\n"
+        for (meta, anns) in books {
+            md += exportAsObsidianMarkdown(annotations: anns, book: meta)
+            md += "\n---\n\n"
+        }
+        return md
+    }
 
     // MARK: - Helpers
 
@@ -246,6 +337,44 @@ public struct AnnotationExportEngine: Sendable {
 }
 
 // MARK: - Export DTOs
+
+// MARK: - Obsidian Metadata Model
+
+/// 用于 Obsidian/知识库导出的书籍元数据
+public struct ObsidianBookMetadata: Sendable {
+    public let title: String
+    public let author: String?
+    public let isbn: String?
+    public let tags: [String]
+    public let dateAdded: Date
+    public let readingProgress: Double?   // 0.0...1.0
+    
+    public init(
+        title: String,
+        author: String? = nil,
+        isbn: String? = nil,
+        tags: [String] = [],
+        dateAdded: Date = Date(),
+        readingProgress: Double? = nil
+    ) {
+        self.title = title
+        self.author = author
+        self.isbn = isbn
+        self.tags = tags
+        self.dateAdded = dateAdded
+        self.readingProgress = readingProgress
+    }
+    
+    /// 从 Book 模型快速构建
+    public init(from book: Book) {
+        self.title = book.title
+        self.author = book.author
+        self.isbn = book.metadata.isbn
+        self.tags = book.tags.map(\.name)
+        self.dateAdded = book.importedAt
+        self.readingProgress = book.progress?.completionPercentage
+    }
+}
 
 private struct AnnotationExport: Codable {
     let title: String

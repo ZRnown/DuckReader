@@ -39,18 +39,54 @@ public final class LibraryRepository: LibraryRepositoryProtocol, Sendable {
     
     public func search(query: String) async throws -> [Book] {
         let lowerQuery = query.lowercased()
-        let descriptor = FetchDescriptor<SwiftDataBook>(
-            predicate: #Predicate { book in
-                book.title.localizedStandardContains(lowerQuery) ||
-                (book.author?.localizedStandardContains(lowerQuery) ?? false) ||
-                book.metadataSeries?.localizedStandardContains(lowerQuery) ?? false
-            },
-            sortBy: [SortDescriptor(\.title)]
+    let descriptor = FetchDescriptor<SwiftDataBook>(
+        predicate: #Predicate { book in
+            book.title.localizedStandardContains(lowerQuery) ||
+            (book.author?.localizedStandardContains(lowerQuery) ?? false) ||
+            (book.metadataSeries?.localizedStandardContains(lowerQuery) ?? false)
+        },
+        sortBy: [SortDescriptor(\.title)]
+    )
+    let results = try modelContext.fetch(descriptor)
+    return results.map { $0.toDomain }
+}
+
+    // MARK: - Paginated Fetch
+    
+    /// 分页获取书籍，支持大库 (>1000本) 场景下的懒加载
+    public func fetchPaginated(
+        page: Int,
+        pageSize: Int = 50,
+        sortBy: LibrarySortOption = .recentlyOpened
+    ) async throws -> PaginatedResult {
+        let offset = page * pageSize
+        var descriptor = FetchDescriptor<SwiftDataBook>(
+            sortBy: [sortBy.sortDescriptor]
         )
+        descriptor.fetchLimit = pageSize
+        descriptor.fetchOffset = offset
         let results = try modelContext.fetch(descriptor)
-        return results.map { $0.toDomain }
+        let hasMore = results.count == pageSize
+        return PaginatedResult(
+            books: results.map { $0.toDomain },
+            page: page,
+            hasMore: hasMore
+        )
     }
     
+    /// 获取总书籍数（使用轻量 count descriptor）
+    public func totalCount() async throws -> Int {
+        var descriptor = FetchDescriptor<SwiftDataBook>()
+        descriptor.fetchLimit = 1
+        let count = try modelContext.fetchCount(descriptor)
+        return count
+    }
+    
+    /// 懒加载大库入口：初始只取首页，后续按需加载
+    public func fetchLazyInitial(pageSize: Int = 30) async throws -> PaginatedResult {
+        try await fetchPaginated(page: 0, pageSize: pageSize, sortBy: .recentlyOpened)
+    }
+
     // MARK: - CRUD
     
     public func add(_ book: Book) async throws {
@@ -165,6 +201,20 @@ public final class LibraryRepository: LibraryRepositoryProtocol, Sendable {
             predicate: #Predicate { $0.id == id }
         )
         return try modelContext.fetch(descriptor).first
+    }
+}
+
+// MARK: - Paginated Result
+
+public struct PaginatedResult: Sendable {
+    public let books: [Book]
+    public let page: Int
+    public let hasMore: Bool
+    
+    public init(books: [Book], page: Int, hasMore: Bool) {
+        self.books = books
+        self.page = page
+        self.hasMore = hasMore
     }
 }
 

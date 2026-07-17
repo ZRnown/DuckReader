@@ -29,7 +29,7 @@ public final class ReadingPresets: ObservableObject, @unchecked Sendable {
     // MARK: - Preset CRUD
 
     /// Get the effective preset for a book (per-book > per-series > default).
-    public func preset(for bookID: UUID, seriesName: String? = nil, format: BookFormat = .comic) -> ReadingPreset {
+    public func preset(for bookID: UUID, seriesName: String? = nil, format: PresetBookFormat = .comic) -> ReadingPreset {
         if let bookPreset = presets[bookID] {
             return bookPreset
         }
@@ -285,7 +285,7 @@ public struct ReadingPreset: Codable, Sendable {
     // MARK: - Helpers
 
     /// Apply format-specific overrides (comic vs novel).
-    public func withFormatDefaults(_ format: BookFormat) -> ReadingPreset {
+    public func withFormatDefaults(_ format: PresetBookFormat) -> ReadingPreset {
         var copy = self
         switch format {
         case .comic, .manga:
@@ -303,7 +303,7 @@ public struct ReadingPreset: Codable, Sendable {
     }
 }
 
-public enum BookFormat: String, Sendable {
+public enum PresetBookFormat: String, Sendable {
     case comic, manga, novel
 }
 
