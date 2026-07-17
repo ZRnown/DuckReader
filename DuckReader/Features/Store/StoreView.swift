@@ -2,376 +2,423 @@ import SwiftUI
 import StoreKit
 import Observation
 
-// MARK: - Store Manager
+// MARK: - Enhanced Product IDs
 
-/// 内购管理器：处理一次性买断和可选订阅。
-/// Freemium 模式：基础本地阅读免费，高级功能一次性买断 ¥68-98。
+/// 内购产品ID定义 — 3层结构
+public enum ProductID: String, CaseIterable {
+    // ---- Tier 1: Free (no IAP) ----
+    // All basic reading features included
+
+    // ---- Tier 2: Core Unlock (one-time, non-consumable) ----
+    /// 核心版：解锁高级阅读模式、OPDS、元数据、备份
+    case coreUnlock = "com.duckreader.core.unlock"
+
+    // ---- Tier 3: Pro（终身买断，含全部） ----
+    case lifetimePro = "com.duckreader.lifetime.pro"
+
+    // ---- Tier 4: AI 订阅（月度/年度） ----
+    case aiMonthly = "com.duckreader.ai.monthly"
+    case aiYearly = "com.duckreader.ai.yearly"
+
+    // ---- 云同步（月度） ----
+    case cloudMonthly = "com.duckreader.cloud.monthly"
+
+    // ---- 打赏 ----
+    case tipSmall = "com.duckreader.tip.small"    // ¥6
+    case tipMedium = "com.duckreader.tip.medium"  // ¥18
+    case tipLarge = "com.duckreader.tip.large"    // ¥68
+
+    // MARK: - Tier Groups
+
+    public enum Tier: String, CaseIterable {
+        case free
+        case core
+        case pro
+        case ai
+        case cloud
+
+        public var displayName: String {
+            switch self {
+            case .free: String(localized: "store.tierFree")
+            case .core: String(localized: "store.tierCore")
+            case .pro: String(localized: "store.tierPro")
+            case .ai: String(localized: "store.tierAI")
+            case .cloud: String(localized: "store.tierCloud")
+            }
+        }
+
+        public var color: Color {
+            switch self {
+            case .free: return .secondary
+            case .core: return .blue
+            case .pro: return .orange
+            case .ai: return .purple
+            case .cloud: return .teal
+            }
+        }
+    }
+
+    public var tier: Tier {
+        switch self {
+        case .coreUnlock: return .core
+        case .lifetimePro: return .pro
+        case .aiMonthly, .aiYearly: return .ai
+        case .cloudMonthly: return .cloud
+        case .tipSmall, .tipMedium, .tipLarge: return .free
+        }
+    }
+
+    public var displayName: String {
+        switch self {
+        case .coreUnlock: String(localized: "store.coreUnlock")
+        case .lifetimePro: String(localized: "store.lifetimePro")
+        case .aiMonthly: String(localized: "store.aiMonthly")
+        case .aiYearly: String(localized: "store.aiYearly")
+        case .cloudMonthly: String(localized: "store.cloudMonthly")
+        case .tipSmall: String(localized: "store.tipSmall")
+        case .tipMedium: String(localized: "store.tipMedium")
+        case .tipLarge: String(localized: "store.tipLarge")
+        }
+    }
+
+    public var icon: String {
+        switch self {
+        case .coreUnlock: return "lock.open"
+        case .lifetimePro: return "crown.fill"
+        case .aiMonthly, .aiYearly: return "brain.head.profile"
+        case .cloudMonthly: return "icloud"
+        case .tipSmall: return "cup.and.saucer"
+        case .tipMedium: return "birthday.cake"
+        case .tipLarge: return "gift.fill"
+        }
+    }
+}
+
+// MARK: - Feature Map per Tier
+
+/// Maps each tier to the features it unlocks.
+public enum FeatureAccess: Sendable {
+    public struct Feature: Identifiable, Sendable {
+        public let id: String
+        public let name: String
+        public let description: String
+        public let icon: String
+    }
+
+    public static func features(for tier: ProductID.Tier) -> [Feature] {
+        switch tier {
+        case .free:
+            return [
+                Feature(id: "basic_reader", name: String(localized: "feature.basicReader"), description: String(localized: "feature.basicReaderDesc"), icon: "book"),
+                Feature(id: "local_import", name: String(localized: "feature.localImport"), description: String(localized: "feature.localImportDesc"), icon: "square.and.arrow.down"),
+                Feature(id: "manga_single", name: String(localized: "feature.mangaSingle"), description: String(localized: "feature.mangaSingleDesc"), icon: "rectangle.grid.1x2"),
+                Feature(id: "basic_panels", name: String(localized: "feature.basicPanels"), description: String(localized: "feature.basicPanelsDesc"), icon: "rectangle.3.group"),
+            ]
+        case .core:
+            return FeatureAccess.features(for: .free) + [
+                Feature(id: "all_modes", name: String(localized: "feature.allModes"), description: String(localized: "feature.allModesDesc"), icon: "rectangle.split.3x1"),
+                Feature(id: "opds_support", name: String(localized: "feature.opdsSupport"), description: String(localized: "feature.opdsSupportDesc"), icon: "network"),
+                Feature(id: "advanced_meta", name: String(localized: "feature.advancedMeta"), description: String(localized: "feature.advancedMetaDesc"), icon: "info.circle"),
+                Feature(id: "backup", name: String(localized: "feature.backup"), description: String(localized: "feature.backupDesc"), icon: "arrow.triangle.2.circlepath"),
+                Feature(id: "smart_lists", name: String(localized: "feature.smartLists"), description: String(localized: "feature.smartListsDesc"), icon: "list.star"),
+                Feature(id: "gesture_custom", name: String(localized: "feature.gestureCustom"), description: String(localized: "feature.gestureCustomDesc"), icon: "hand.tap"),
+            ]
+        case .pro:
+            return FeatureAccess.features(for: .core) + [
+                Feature(id: "ai_panels", name: String(localized: "feature.aiPanels"), description: String(localized: "feature.aiPanelsDesc"), icon: "sparkles"),
+                Feature(id: "advanced_tts", name: String(localized: "feature.advancedTTS"), description: String(localized: "feature.advancedTTSDesc"), icon: "waveform"),
+                Feature(id: "pencil", name: String(localized: "feature.pencil"), description: String(localized: "feature.pencilDesc"), icon: "applepencil"),
+                Feature(id: "themes_all", name: String(localized: "feature.themesAll"), description: String(localized: "feature.themesAllDesc"), icon: "paintpalette"),
+                Feature(id: "vocab", name: String(localized: "feature.vocab"), description: String(localized: "feature.vocabDesc"), icon: "character.book.closed"),
+            ]
+        case .ai:
+            return [
+                Feature(id: "ai_upscale", name: String(localized: "feature.aiUpscale"), description: String(localized: "feature.aiUpscaleDesc"), icon: "sparkle.magnifyingglass"),
+                Feature(id: "ocr_translate", name: String(localized: "feature.ocrTranslate"), description: String(localized: "feature.ocrTranslateDesc"), icon: "character.bubble"),
+                Feature(id: "ai_summary", name: String(localized: "feature.aiSummary"), description: String(localized: "feature.aiSummaryDesc"), icon: "doc.text.magnifyingglass"),
+            ]
+        case .cloud:
+            return [
+                Feature(id: "icloud_sync", name: String(localized: "feature.iCloudSync"), description: String(localized: "feature.iCloudSyncDesc"), icon: "icloud"),
+                Feature(id: "webdav_sync", name: String(localized: "feature.webdavSync"), description: String(localized: "feature.webdavSyncDesc"), icon: "server.rack"),
+                Feature(id: "cross_device", name: String(localized: "feature.crossDevice"), description: String(localized: "feature.crossDeviceDesc"), icon: "macbook.and.iphone"),
+            ]
+        }
+    }
+}
+
+// MARK: - Store ViewModel
+
 @MainActor
 @Observable
-public final class StoreManager: Sendable {
-    
-    // MARK: - Product IDs
-    
-    public enum ProductID: String, CaseIterable {
-        // 一次性买断
-        case lifetimePro = "com.duckreader.lifetime.pro"
-        
-        // 可选订阅
-        case aiMonthly = "com.duckreader.ai.monthly"
-        case aiYearly = "com.duckreader.ai.yearly"
-        
-        // 打赏/咖啡
-        case tipSmall = "com.duckreader.tip.small"    // ¥6
-        case tipMedium = "com.duckreader.tip.medium"  // ¥18
-        case tipLarge = "com.duckreader.tip.large"    // ¥68
-        
-        // 云同步订阅（可选，自建后端用户）
-        case cloudMonthly = "com.duckreader.cloud.monthly"
+public final class StoreViewModel: Sendable {
+    public var products: [Product] = []
+    public var purchasedProductIDs: Set<String> = []
+    public var isLoading = false
+    public var error: Error?
+    public var selectedTier: ProductID.Tier?
+
+    public var isCore: Bool {
+        purchasedProductIDs.contains(ProductID.coreUnlock.rawValue)
     }
-    
-    @Published public private(set) var products: [Product] = []
-    @Published public private(set) var purchasedProductIDs: Set<String> = []
-    @Published public var isLoading = false
-    @Published public var error: Error?
-    
+
     public var isPro: Bool {
         purchasedProductIDs.contains(ProductID.lifetimePro.rawValue)
     }
-    
-    public var hasAIAccess: Bool {
+
+    public var isAI: Bool {
         isPro || purchasedProductIDs.contains(ProductID.aiMonthly.rawValue) ||
         purchasedProductIDs.contains(ProductID.aiYearly.rawValue)
     }
-    
-    public var hasCloudSync: Bool {
+
+    public var isCloud: Bool {
         isPro || purchasedProductIDs.contains(ProductID.cloudMonthly.rawValue)
     }
-    
-    // MARK: - Init
-    
-    public init() {
-        Task {
-            await loadProducts()
-            await listenForTransactions()
-        }
-    }
-    
-    // MARK: - Load Products
-    
+
+    private var updateListenerTask: Task<Void, Error>?
+
+    public init() {}
+
     public func loadProducts() async {
         isLoading = true
-        defer { isLoading = false }
-        
         do {
             let productIDs = ProductID.allCases.map { $0.rawValue }
             products = try await Product.products(for: Set(productIDs))
-            
-            // Sort: lifetime first, then subscriptions, then tips
-            products.sort { a, b in
-                let orderA = productOrder(a.id)
-                let orderB = productOrder(b.id)
-                return orderA < orderB
-            }
         } catch {
             self.error = error
         }
+        isLoading = false
     }
-    
-    private func productOrder(_ id: String) -> Int {
-        if id.contains("lifetime") { return 0 }
-        if id.contains("ai") { return 1 }
-        if id.contains("cloud") { return 2 }
-        if id.contains("tip") { return 3 }
-        return 4
-    }
-    
-    // MARK: - Purchase
-    
-    public func purchase(_ product: Product) async {
-        isLoading = true
-        defer { isLoading = false }
-        
-        do {
-            let result = try await product.purchase()
-            
-            switch result {
-            case .success(let verification):
-                let transaction = try checkVerified(verification)
-                await handlePurchased(transaction)
-                
-            case .userCancelled:
-                break
-                
-            case .pending:
-                // 等待家长审批等
-                break
-                
-            @unknown default:
-                break
-            }
-        } catch {
-            self.error = error
-        }
-    }
-    
-    // MARK: - Restore Purchases
-    
-    public func restorePurchases() async {
-        isLoading = true
-        defer { isLoading = false }
-        
-        do {
-            try await AppStore.sync()
-        } catch {
-            self.error = error
-        }
-    }
-    
-    // MARK: - Private
-    
-    private func listenForTransactions() async {
-        for await verification in Transaction.updates {
-            guard let transaction = try? checkVerified(verification) else {
-                continue
-            }
-            await handlePurchased(transaction)
-        }
-    }
-    
-    private func handlePurchased(_ transaction: Transaction) async {
-        purchasedProductIDs.insert(transaction.productID)
-        await transaction.finish()
-    }
-    
-    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+
+    public func purchase(_ product: Product) async throws {
+        let result = try await product.purchase()
         switch result {
-        case .unverified:
-            throw StoreError.failedVerification
-        case .verified(let safe):
-            return safe
+        case .success(let verification):
+            if case .verified(let transaction) = verification {
+                purchasedProductIDs.insert(transaction.productID)
+                await transaction.finish()
+            }
+        case .userCancelled: break
+        case .pending: break
+        @unknown default: break
+        }
+    }
+
+    public func listenForTransactions() {
+        updateListenerTask = Task.detached {
+            for await result in Transaction.updates {
+                if case .verified(let transaction) = result {
+                    await MainActor.run {
+                        self.purchasedProductIDs.insert(transaction.productID)
+                    }
+                    await transaction.finish()
+                }
+            }
+        }
+    }
+
+    public func restorePurchases() async {
+        for await result in Transaction.currentEntitlements {
+            if case .verified(let transaction) = result {
+                purchasedProductIDs.insert(transaction.productID)
+            }
         }
     }
 }
 
-enum StoreError: LocalizedError {
-    case failedVerification
-    
-    var errorDescription: String? {
-        switch self {
-        case .failedVerification: L10n.storeVerificationFailed
+// MARK: - Tier Card View
+
+struct TierCard: View {
+    let tier: ProductID.Tier
+    let products: [Product]
+    let isPurchased: Bool
+    let onPurchase: (Product) async -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text(tier.displayName)
+                    .font(.title3.bold())
+                    .foregroundColor(tier.color)
+
+                Spacer()
+
+                if isPurchased {
+                    Label(String(localized: "store.purchased"), systemImage: "checkmark.seal.fill")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.green.opacity(0.12), in: Capsule())
+                }
+            }
+
+            Divider()
+
+            ForEach(FeatureAccess.features(for: tier)) { feature in
+                HStack(spacing: 12) {
+                    Image(systemName: feature.icon)
+                        .foregroundColor(tier.color)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(feature.name)
+                            .font(.subheadline.weight(.medium))
+                        Text(feature.description)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            if !isPurchased {
+                ForEach(tierProducts, id: \.id) { product in
+                    Button {
+                        Task { await onPurchase(product) }
+                    } label: {
+                        HStack {
+                            Text(product.displayName)
+                            Spacer()
+                            Text(product.displayPrice)
+                                .fontWeight(.semibold)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(tier.color)
+                }
+            }
         }
+        .padding(20)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var tierProducts: [Product] {
+        let ids: [ProductID] = {
+            switch tier {
+            case .core: return [.coreUnlock]
+            case .pro: return [.lifetimePro]
+            case .ai: return [.aiMonthly, .aiYearly]
+            case .cloud: return [.cloudMonthly]
+            case .free: return []
+            }
+        }()
+        let rawIDs = Set(ids.map { $0.rawValue })
+        return products.filter { rawIDs.contains($0.id) }
     }
 }
 
-// MARK: - Store View (Paywall)
+// MARK: - Store View
 
 public struct StoreView: View {
-    @State private var storeManager: StoreManager
+    @State private var viewModel = StoreViewModel()
     @Environment(\.dismiss) private var dismiss
-    
-    public init(storeManager: StoreManager) {
-        self._storeManager = State(initialValue: storeManager)
-    }
-    
+
+    public init() {}
+
     public var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 20) {
                     // Header
                     VStack(spacing: 8) {
                         Image(systemName: "crown.fill")
                             .font(.system(size: 48))
-                            .foregroundStyle(.yellow)
-                        
-                        Text(L10n.storeUnlockPro)
-                            .font(.title)
-                            .fontWeight(.bold)
-                        
-                        Text(L10n.storeLifetimePurchase)
+                            .foregroundStyle(.orange.gradient)
+                        Text(String(localized: "store.title"))
+                            .font(.title.bold())
+                        Text(String(localized: "store.subtitle"))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
-                    .padding(.top, 32)
-                    
-                    // Feature list
-                    VStack(alignment: .leading, spacing: 16) {
-                        FeatureRow(icon: "infinity", title: L10n.storeFeatureUnlimitedFormats, description: L10n.storeFeatureUnlimitedFormatsDesc)
-                        FeatureRow(icon: "wand.and.stars", title: L10n.storeFeatureAIEnhance, description: L10n.storeFeatureAIEnhanceDesc)
-                        FeatureRow(icon: "rectangle.split.3x3", title: L10n.storeFeaturePanelByPanel, description: L10n.storeFeaturePanelByPanelDesc)
-                        FeatureRow(icon: "icloud", title: L10n.storeFeatureSync, description: L10n.storeFeatureCloudSyncDesc)
-                        FeatureRow(icon: "text.bubble", title: L10n.storeFeatureTTS, description: L10n.storeFeatureTTSDesc)
-                        FeatureRow(icon: "chart.bar", title: L10n.storeFeatureStats, description: L10n.storeFeatureStatsDesc)
+                    .padding(.top, 20)
+
+                    // Privacy + No Ads badge
+                    HStack(spacing: 16) {
+                        Label(String(localized: "store.noAds"), systemImage: "nosign")
+                        Label(String(localized: "store.noTracking"), systemImage: "eye.slash")
+                        Label(String(localized: "store.privacyFirst"), systemImage: "hand.raised")
                     }
-                    .padding(.horizontal, 24)
-                    
-                    Divider()
-                    
-                    // Pricing
-                    if storeManager.isLoading {
-                        ProgressView(L10n.storeLoadingPrice)
-                    } else if storeManager.products.isEmpty {
-                        Text(L10n.storeNoProducts)
-                            .foregroundColor(.secondary)
-                    } else {
-                        VStack(spacing: 12) {
-                            // Lifetime
-                            ForEach(storeManager.products.filter { $0.id.contains("lifetime") }) { product in
-                                PurchaseButton(
-                                    product: product,
-                                    isHighlighted: true,
-                                    action: { Task { await storeManager.purchase(product) } }
-                                )
-                            }
-                            
-                            // Subscriptions
-                            ForEach(storeManager.products.filter { !$0.id.contains("lifetime") && !$0.id.contains("tip") }) { product in
-                                PurchaseButton(
-                                    product: product,
-                                    isHighlighted: false,
-                                    action: { Task { await storeManager.purchase(product) } }
-                                )
-                            }
-                        }
-                        
-                        // Tips
-                        if !storeManager.products.filter({ $0.id.contains("tip") }).isEmpty {
-                            Text(L10n.storeTipCoffee)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 16)
-                            
-                            HStack(spacing: 8) {
-                                ForEach(storeManager.products.filter { $0.id.contains("tip") }) { product in
-                                    TipButton(product: product) {
-                                        Task { await storeManager.purchase(product) }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                    // Tier Cards
+                    TierCard(
+                        tier: .core,
+                        products: viewModel.products,
+                        isPurchased: viewModel.isCore || viewModel.isPro,
+                        onPurchase: { try? await viewModel.purchase($0) }
+                    )
+
+                    TierCard(
+                        tier: .pro,
+                        products: viewModel.products,
+                        isPurchased: viewModel.isPro,
+                        onPurchase: { try? await viewModel.purchase($0) }
+                    )
+
+                    TierCard(
+                        tier: .ai,
+                        products: viewModel.products,
+                        isPurchased: viewModel.isAI,
+                        onPurchase: { try? await viewModel.purchase($0) }
+                    )
+
+                    TierCard(
+                        tier: .cloud,
+                        products: viewModel.products,
+                        isPurchased: viewModel.isCloud,
+                        onPurchase: { try? await viewModel.purchase($0) }
+                    )
+
+                    // Tips
+                    VStack(spacing: 12) {
+                        Text(String(localized: "store.tipHeader"))
+                            .font(.headline)
+                        HStack(spacing: 12) {
+                            ForEach([ProductID.tipSmall, .tipMedium, .tipLarge], id: \.rawValue) { tip in
+                                if let product = viewModel.products.first(where: { $0.id == tip.rawValue }) {
+                                    Button {
+                                        Task { try? await viewModel.purchase(product) }
+                                    } label: {
+                                        VStack(spacing: 4) {
+                                            Image(systemName: tip.icon)
+                                                .font(.title2)
+                                            Text(product.displayPrice)
+                                                .font(.caption.bold())
+                                        }
+                                        .padding(12)
+                                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
                                     }
+                                    .buttonStyle(.plain)
                                 }
                             }
                         }
                     }
-                    
+                    .padding(20)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+
                     // Restore
-                    Button(L10n.storeRestore) {
-                        Task { await storeManager.restorePurchases() }
+                    Button(String(localized: "store.restorePurchases")) {
+                        Task { await viewModel.restorePurchases() }
                     }
                     .font(.subheadline)
-                    .padding(.bottom, 32)
-                    
-                    // Legal
-                    VStack(spacing: 4) {
-                        Text(L10n.storeAgreement)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        
-                        HStack(spacing: 4) {
-                            Link(L10n.storeUserAgreement, destination: URL(string: "https://duckreader.app/terms")!)
-                            Text("·")
-                            Link(L10n.storePrivacyPolicy, destination: URL(string: "https://duckreader.app/privacy")!)
-                        }
-                        .font(.caption2)
-                    }
-                    .padding(.bottom)
+                    .padding(.bottom, 24)
                 }
+                .padding(.horizontal)
             }
-            .navigationTitle(L10n.storeTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(Text(""))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.close) { dismiss() }
+                    Button(String(localized: "store.done")) { dismiss() }
                 }
             }
         }
-    }
-}
-
-// MARK: - Subviews
-
-private struct FeatureRow: View {
-    let icon: String
-    let title: String
-    let description: String
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .frame(width: 32)
-                .foregroundColor(.accentColor)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+        .task {
+            await viewModel.loadProducts()
+            await viewModel.listenForTransactions()
         }
     }
-}
-
-private struct PurchaseButton: View {
-    let product: Product
-    let isHighlighted: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(product.displayName)
-                        .font(.headline)
-                    Text(product.description)
-                        .font(.caption)
-                }
-                
-                Spacer()
-                
-                Text(product.displayPrice)
-                    .font(.title3)
-                    .fontWeight(.bold)
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isHighlighted ? Color.accentColor : Color(.systemGray6))
-            )
-            .foregroundColor(isHighlighted ? .white : .primary)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct TipButton: View {
-    let product: Product
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Text(emojiForPrice(product.displayPrice))
-                    .font(.title)
-                Text(product.displayPrice)
-                    .font(.caption2)
-                    .fontWeight(.medium)
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(.systemGray6))
-            )
-        }
-        .buttonStyle(.plain)
-    }
-    
-    private func emojiForPrice(_ price: String) -> String {
-        if price.contains("6") { return "☕️" }
-        if price.contains("18") { return "🍰" }
-        if price.contains("68") { return "🍕" }
-        return "❤️"
-    }
-}
-
-#Preview {
-    StoreView(storeManager: StoreManager())
 }
