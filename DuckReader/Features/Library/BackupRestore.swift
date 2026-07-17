@@ -316,3 +316,22 @@ public extension EnvironmentValues {
         set { self[BackupRestoreKey.self] = newValue }
     }
 }
+
+// MARK: - Encrypted Backup Manager Integration (v2.2)
+
+extension BackupRestore {
+    /// Delegate encrypted backup operations to EncryptedBackupManager.
+    private var encryptedManager: EncryptedBackupManager { EncryptedBackupManager() }
+
+    /// Create a passphrase-protected backup.
+    public func createEncryptedBackup(passphrase: String, label: String) async throws -> BackupVersion {
+        let data = try await exportAllData()
+        return try await encryptedManager.createEncryptedBackup(data: data, passphrase: passphrase, label: label)
+    }
+
+    /// Restore from an encrypted backup.
+    public func restoreEncryptedBackup(_ version: BackupVersion, passphrase: String) async throws {
+        let data = try await encryptedManager.decryptBackup(version, passphrase: passphrase)
+        try await importAllData(data)
+    }
+}

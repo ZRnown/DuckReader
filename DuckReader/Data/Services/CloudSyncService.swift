@@ -224,3 +224,45 @@ public final class CloudSyncService: ObservableObject {
         }
     }
 }
+
+// MARK: - Progress Sync Conflict Resolution Integration (v2.2)
+
+extension CloudSyncService {
+    /// Resolve conflicting reading positions across devices.
+    /// Called automatically when sync detects diverged progress.
+    public func resolveProgressConflict(
+        bookID: String,
+        localProgress: Double,
+        localTimestamp: Date,
+        remoteProgress: Double,
+        remoteTimestamp: Date,
+        remoteDeviceName: String,
+        strategy: ResolutionStrategy = .smart
+    ) -> SyncPosition {
+        let localPos = SyncPosition(
+            deviceID: deviceID,
+            deviceName: UIDevice.current.name,
+            progress: localProgress,
+            timestamp: localTimestamp,
+            bookID: bookID
+        )
+        let remotePos = SyncPosition(
+            deviceID: "remote",
+            deviceName: remoteDeviceName,
+            progress: remoteProgress,
+            timestamp: remoteTimestamp,
+            bookID: bookID
+        )
+
+        let conflict = SyncConflict(localPosition: localPos, remotePosition: remotePos)
+
+        if let resolved = ProgressSyncResolver.autoResolve(
+            conflict: conflict,
+            localDeviceID: deviceID,
+            strategy: strategy
+        ) {
+            return resolved
+        }
+        return localTimestamp > remoteTimestamp ? localPos : remotePos
+    }
+}

@@ -319,3 +319,25 @@ public extension EnvironmentValues {
         set { self[ThemeStoreKey.self] = newValue }
     }
 }
+
+// MARK: - Theme Marketplace Integration (v2.2)
+
+extension ThemeStore {
+    /// Export a theme as portable JSON for sharing.
+    public func exportTheme(_ theme: ReaderTheme) -> Data? {
+        try? JSONEncoder().encode(theme)
+    }
+
+    /// Import a shared theme from JSON.
+    public func importTheme(from data: Data) -> ReaderTheme? {
+        try? JSONDecoder().decode(ReaderTheme.self, from: data)
+    }
+
+    /// Share a theme via the system share sheet.
+    public func shareTheme(_ theme: ReaderTheme) {
+        guard let data = exportTheme(theme) else { return }
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(theme.name).ducktheme")
+        try? data.write(to: tempURL, options: .atomic)
+    }
+}

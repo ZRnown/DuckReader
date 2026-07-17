@@ -169,6 +169,14 @@ public struct NormalizedRect: Codable, Hashable, Sendable {
         self.width = width
         self.height = height
     }
+
+    // 便捷计算属性（供 AI 翻译、Guided Panel 等模块使用）
+    public var minX: Double { x }
+    public var maxX: Double { x + width }
+    public var minY: Double { y }
+    public var maxY: Double { y + height }
+    public var midX: Double { x + width / 2 }
+    public var midY: Double { y + height / 2 }
 }
 
 /// 阅读统计

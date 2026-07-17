@@ -5,7 +5,11 @@
 _key: user-profile · updated today_
 
 ## decision
-- [bd0aacc535a6] The operator is an iOS developer who values professional, modern UI design, avoiding programmer aesthetic. For new projects, they prefer SwiftUI with Swift 6 concurrency. They integrate open-source libraries under permissive licenses (BSD, MIT). Monetization should follow a one-time purchase model, rejecting ongoing subscriptions. On-device processing and user privacy are paramount. (tags: evolve:digest, src:99ffccc3d825, src:df2ddbf8f007, src:487721fcdeda, src:1516a2a21c1a, src:8ced25ef50c2) (today)
+- [2da441fdfac0] Prefers low-power, battery-friendly features and will proactively remove high-power-consumption proposals to deliver a smooth user experience without draining battery. (today)
+- [9a0d04fddc11] The operator is an iOS developer focused on professional, modern UI design (no programmer aesthetic). For new projects, they prefer SwiftUI with Swift 6 concurrency. They integrate open-source libraries under permissive licenses (BSD, MIT), monetize via one-time purchase (rejecting subscriptions), and prioritize on-device processing and user privacy. They regularly study competitors for feature inspiration and use device-side AI (CoreML, Neural Engine) for tasks like panel detection, image upscaling, or OCR. App performance is optimized for older devices, ensuring smooth running on legacy iPhones. (tags: evolve:digest, src:0f94fd0100a6, src:d0871ed38428, src:392ef6133651) (today)
+- [0f94fd0100a6] Regularly analyzes competitor products for feature inspiration to maintain a competitive edge. (today)
+- [d0871ed38428] Frequently integrates device-side AI using CoreML or Neural Engine to enhance features (e.g., panel detection, image upscaling, OCR). (today)
+- [392ef6133651] Prioritizes app performance optimization for older devices, ensuring smooth operation even on legacy iPhone models (today)
 - [99ffccc3d825] Prefers integrating open-source libraries with permissive licenses (BSD, MIT) (today)
 - [df2ddbf8f007] Prefers SwiftUI with Swift 6 concurrency for new iOS projects (today)
 - [487721fcdeda] Emphasizes professional, modern UI that avoids “programmer aesthetic” (today)

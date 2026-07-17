@@ -422,3 +422,16 @@ public enum ExportResult: Sendable {
         }
     }
 }
+
+// MARK: - Reading Card Generator Integration (v2.2)
+
+extension AnnotationExport {
+    /// Generate a shareable reading card for the ReadingCardGenerator.
+    public func readingCardData(from annotation: Annotation, bookTitle: String, author: String?) -> ReadingCardGenerator.CardData {
+        ReadingCardGenerator.CardData(
+            bookTitle: bookTitle, author: author,
+            quote: annotation.text,
+            quoteAttribution: annotation.timestamp.formatted(date: .abbreviated, time: .omitted)
+        )
+    }
+}

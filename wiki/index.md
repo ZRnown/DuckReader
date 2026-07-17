@@ -6,7 +6,7 @@
 Read this index first; open a specific page with read_file("wiki/<file>.md") only when the task needs it. Pages are generated from durable memory — change them via the remember/forget tools, not by editing.
 
 ## profile
-- [User profile](user-profile-2617.md) — 6 facts, today
+- [User profile](user-profile-2617.md) — 10 facts, today
 
 ## pattern
 - [内容配比：引流款（热点/大众话题）、信任款（专业干货/幕后）、转化款（产品/促销）需搭配使用。纯…](pattern-content-mix-3b1e.md) — 3 facts, today

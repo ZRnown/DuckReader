@@ -244,3 +244,39 @@ public final class AccessibilityStore: ObservableObject, Sendable {
         config.expandedTouchTargets = defaults.bool(forKey: "accessibility_expandedTouchTargets")
     }
 }
+
+// MARK: - Accessibility Enhancements (v2.2)
+// Reading rhythm guide, Korean/Traditional Chinese locale, E-ink mode
+
+extension AccessibilitySupport {
+    /// Reading rhythm: gentle haptic pulses at configurable intervals
+    /// to help maintain reading pace.
+    public enum ReadingRhythmInterval: TimeInterval, CaseIterable {
+        case off = 0
+        case slow = 10
+        case medium = 5
+        case fast = 2
+
+        public var label: String {
+            switch self {
+            case .off:    String(localized: "a11y.rhythm.off")
+            case .slow:   String(localized: "a11y.rhythm.slow")
+            case .medium: String(localized: "a11y.rhythm.medium")
+            case .fast:   String(localized: "a11y.rhythm.fast")
+            }
+        }
+    }
+
+    /// Check if e-ink optimization is enabled and provide the appropriate preset.
+    public static func eInkReadingPreset() -> ReadingPreset {
+        ReadingPreset(
+            theme: .light, fontSize: 16, fontName: nil,
+            lineSpacing: 1.5, paragraphSpacing: 8,
+            scrollDirection: .horizontal, pageLayout: .auto, panelMode: .off,
+            autoHideControls: false, pageTurnAnimation: .none, tapZoneScheme: .leftRight,
+            ttsVoice: nil, ttsRate: 1.0,
+            reduceMotion: true, highContrast: true, eInkOptimized: true, verticalText: false,
+            lastModified: Date(), label: "E-Ink"
+        )
+    }
+}
