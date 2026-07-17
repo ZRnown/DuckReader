@@ -9,6 +9,21 @@ import SwiftSoup
 /// extraction, TOC parsing, and content pre-processing for import and library display.
 public final class NovelParser: Sendable {
 
+    // MARK: - Static Regex Cache (avoid recompilation on every parse)
+
+    private static let txtChapterPatterns: [NSRegularExpression] = [
+        try! NSRegularExpression(pattern: #"^(第[零一二三四五六七八九十百千万0-9]+[章节回卷部集篇])"#),
+        try! NSRegularExpression(pattern: #"^(Chapter\s*\d+)"#, options: .caseInsensitive),
+        try! NSRegularExpression(pattern: #"^(序言|楔子|前言|引子|尾声|后记|番外|附录|跋)"#),
+        try! NSRegularExpression(pattern: #"^(Volume\s*\d+|Part\s*\d+)"#, options: .caseInsensitive),
+    ]
+
+    private static let markdownHeadingRegex = try! NSRegularExpression(
+        pattern: #"^#{1,6}\s+(.+)$"#, options: .anchorsMatchLines
+    )
+
+    private static let htmlTagRegex = try! NSRegularExpression(pattern: "<[^>]+>")
+
     public enum NovelParserError: LocalizedError {
         case invalidFile
         case unsupportedFormat
@@ -654,12 +669,7 @@ public final class NovelParser: Sendable {
         var chapters: [String] = []
         var lastTitle = ""
 
-        let patterns: [NSRegularExpression] = [
-            try! NSRegularExpression(pattern: #"^(第[零一二三四五六七八九十百千万0-9]+[章节回卷部集篇])"#),
-            try! NSRegularExpression(pattern: #"^(Chapter\s*\d+)"#, options: .caseInsensitive),
-            try! NSRegularExpression(pattern: #"^(序言|楔子|前言|引子|尾声|后记|番外|附录|跋)"#),
-            try! NSRegularExpression(pattern: #"^(Volume\s*\d+|Part\s*\d+)"#, options: .caseInsensitive),
-        ]
+        let patterns = Self.txtChapterPatterns
 
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -681,8 +691,7 @@ public final class NovelParser: Sendable {
     }
 
     private func extractMarkdownHeadings(_ text: String) -> [String] {
-        let pattern = try! NSRegularExpression(pattern: #"^#{1,6}\s+(.+)$"#, options: .anchorsMatchLines)
-        let matches = pattern.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        let matches = Self.markdownHeadingRegex.matches(in: text, range: NSRange(text.startIndex..., in: text))
         return matches.compactMap { match in
             guard let range = Range(match.range(at: 1), in: text) else { return nil }
             return String(text[range]).trimmingCharacters(in: .whitespaces)
@@ -713,8 +722,7 @@ public final class NovelParser: Sendable {
         guard let doc = try? SwiftSoup.parse(html),
               let text = try? doc.text() else {
             // Fallback regex strip
-            let pattern = try! NSRegularExpression(pattern: "<[^>]+>")
-            return pattern.stringByReplacingMatches(in: html, range: NSRange(html.startIndex..., in: html), withTemplate: "")
+            return Self.htmlTagRegex.stringByReplacingMatches(in: html, range: NSRange(html.startIndex..., in: html), withTemplate: "")
         }
         return text
     }

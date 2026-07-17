@@ -43,14 +43,19 @@ struct DuckReaderApp: App {
         statsEngine.configure(modelContext: stack.mainContext)
 
         // Load persisted achievements
-        achievementEngine.loadFromStore()
+        // Defer to background to avoid blocking app launch
+        Task.detached(priority: .low) { [achievementEngine] in
+            achievementEngine.loadFromStore()
+        }
 
         // Configure store
         self.storeManager = StoreManager()
 
         // Trigger background sync if privacy lock is off
         if !privacyLock.isAppLockEnabled {
-            Task {
+            // Delay sync to avoid competing with app launch
+            Task.detached(priority: .background) { [cloudSync] in
+                try? await Task.sleep(for: .seconds(3))
                 try? await cloudSync.sync()
             }
         }

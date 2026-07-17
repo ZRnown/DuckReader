@@ -294,7 +294,7 @@ public struct ComicReaderView: View {
     
     private func singlePageView(_ page: PageData, geometry: GeometryProxy) -> some View {
         Group {
-            if let imageData = page.imageData, let uiImage = UIImage(data: imageData) {
+            if let imageData = page.imageData, let uiImage = ImageProcessor.downsampleToScreen(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: viewModel.fitMode == .fitWidth ? .fit : .fill)
@@ -313,7 +313,7 @@ public struct ComicReaderView: View {
     private func panelByPanelView(_ page: PageData, geometry: GeometryProxy) -> some View {
         guard viewModel.currentPanelIndex < viewModel.currentPanels.count,
               let imageData = page.imageData,
-              let uiImage = UIImage(data: imageData) else {
+              let uiImage = ImageProcessor.downsample(data: imageData, to: geometry.size) else {
             return AnyView(Text(String(localized: "reader.cannotLoadPanel")).foregroundColor(.white))
         }
         

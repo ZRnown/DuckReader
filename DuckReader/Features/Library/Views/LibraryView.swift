@@ -158,8 +158,14 @@ public struct LibraryView: View {
             }
             .navigationTitle(L10n.appName)
             .searchable(text: $viewModel.searchQuery)
-            .onChange(of: viewModel.searchQuery) { _, _ in
-                Task { await viewModel.loadBooks() }
+            .onChange(of: viewModel.searchQuery) { _, newValue in
+                // Debounce: wait 300ms of inactivity before searching
+                let query = newValue
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard viewModel.searchQuery == query else { return }
+                    await viewModel.loadBooks()
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

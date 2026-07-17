@@ -68,6 +68,29 @@ public enum ThumbnailGenerator: Sendable {
 /// 图像处理器：裁剪白边、基础增强、格式转换
 public enum ImageProcessor: Sendable {
     
+    // MARK: Downsampling (ImageIO-based, memory-efficient)
+
+    /// Downsamples raw image data to a target point size without decoding full resolution.
+    /// Uses CGImageSource thumbnail API - up to 10x less memory than UIImage(data:).
+    public static func downsample(data: Data, to targetSize: CGSize) -> UIImage? {
+        let maxDim = max(targetSize.width, targetSize.height) * UIScreen.main.scale
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDim,
+        ]
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
+              let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else {
+            return nil
+        }
+        return UIImage(cgImage: cg)
+    }
+
+    /// Convenience: downsample to fit the device screen.
+    public static func downsampleToScreen(data: Data) -> UIImage? {
+        downsample(data: data, to: UIScreen.main.bounds.size)
+    }
+
     /// 智能裁白边
     public static func cropWhiteBorders(_ imageData: Data) async throws -> Data {
         try await Task.detached(priority: .userInitiated) {

@@ -61,7 +61,7 @@ public struct CJKVerticalTextView: View {
         GeometryReader { geometry in
             let _ = Task { @MainActor in
                 containerSize = geometry.size
-                columns = layoutColumns(text: text, config: config, containerSize: geometry.size)
+                columns = await Task.detached { layoutColumns(text: text, config: config, containerSize: geometry.size) }.value
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -84,16 +84,15 @@ public struct CJKVerticalTextView: View {
     }
 
     /// Break text into vertical columns.
-    private func layoutColumns(text: String, config: CJKVerticalConfig, containerSize: CGSize) -> [String] {
+    nonisolated private func layoutColumns(text: String, config: CJKVerticalConfig, containerSize: CGSize) -> [String] {
         let maxLinesPerColumn = Int((containerSize.height - 32) / config.lineHeight)
         guard maxLinesPerColumn > 0 else { return [text] }
 
-        let chars = Array(text)
         var columns: [String] = []
         var currentColumn: [Character] = []
         var lineCount = 0
 
-        for char in chars {
+        for char in text {
             // Handle newlines as explicit column breaks
             if char == "\n" {
                 if !currentColumn.isEmpty {
@@ -130,7 +129,7 @@ public struct CJKVerticalTextView: View {
         return columns
     }
 
-    private func isCJKCharacter(_ char: Character) -> Bool {
+    nonisolated private func isCJKCharacter(_ char: Character) -> Bool {
         guard let scalar = char.unicodeScalars.first else { return false }
         return (0x4E00...0x9FFF).contains(scalar.value) ||   // CJK Unified
                (0x3400...0x4DBF).contains(scalar.value) ||   // CJK Extension A
@@ -158,6 +157,7 @@ private struct VerticalColumnView: View {
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
+        .drawingGroup()
     }
 
     /// Rotate punctuation marks that should appear sideways in vertical text.
