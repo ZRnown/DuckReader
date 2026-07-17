@@ -1,0 +1,39 @@
+# Xcode
+*.xcuserdata
+*.xcworkspace
+*.xcuserstate
+DerivedData/
+build/
+*.build/
+*.xcbkptlist
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# iOS
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+
+# IDE
+.idea/
+*.swp
+*~
+
+# Manify
+.manify/

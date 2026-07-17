@@ -1,0 +1,204 @@
+import Foundation
+import UniformTypeIdentifiers
+
+/// 表示一本漫画或小说的核心模型。
+/// 设计为值类型 (struct) 以配合 SwiftData / Sendable，所有属性不可变。
+public struct Book: Identifiable, Hashable, Sendable, Codable {
+    public let id: UUID
+    public var title: String
+    public var author: String?
+    public var coverImageData: Data?         // 封面缩略图 (JPEG compressed)
+    public var sourceURL: URL                 // 原始档案路径或文件夹路径
+    public var format: BookFormat
+    public var contentType: BookContentType
+    public var totalPages: Int
+    public var fileSize: Int64
+    public var importedAt: Date
+    public var lastOpenedAt: Date?
+    public var progress: ReadingProgress?
+    public var tags: [Tag]
+    public var isFavorite: Bool
+    public var metadata: BookMetadata
+    
+    // MARK: - Computed
+    
+    public var progressPercentage: Double {
+        guard let p = progress, totalPages > 0 else { return 0 }
+        return Double(p.currentPage) / Double(totalPages)
+    }
+    
+    public var isUnread: Bool {
+        progress == nil || progress?.currentPage == 0
+    }
+    
+    public var isFinished: Bool {
+        guard let p = progress, totalPages > 0 else { return false }
+        return p.currentPage >= totalPages - 1
+    }
+    
+    // MARK: - Init
+    
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        author: String? = nil,
+        coverImageData: Data? = nil,
+        sourceURL: URL,
+        format: BookFormat,
+        contentType: BookContentType,
+        totalPages: Int = 0,
+        fileSize: Int64 = 0,
+        importedAt: Date = Date(),
+        lastOpenedAt: Date? = nil,
+        progress: ReadingProgress? = nil,
+        tags: [Tag] = [],
+        isFavorite: Bool = false,
+        metadata: BookMetadata = BookMetadata()
+    ) {
+        self.id = id
+        self.title = title
+        self.author = author
+        self.coverImageData = coverImageData
+        self.sourceURL = sourceURL
+        self.format = format
+        self.contentType = contentType
+        self.totalPages = totalPages
+        self.fileSize = fileSize
+        self.importedAt = importedAt
+        self.lastOpenedAt = lastOpenedAt
+        self.progress = progress
+        self.tags = tags
+        self.isFavorite = isFavorite
+        self.metadata = metadata
+    }
+}
+
+// MARK: - Supporting Types
+
+public enum BookFormat: String, CaseIterable, Codable, Sendable {
+    // 漫画格式
+    case cbz    // Comic Book ZIP
+    case cbr    // Comic Book RAR
+    case zip
+    case rar
+    case sevenZip = "7z"
+    case pdf
+    case imageFolder
+    
+    // 小说格式
+    case epub
+    case txt
+    case markdown
+    case html
+    case mobi
+    case azw3
+    
+    // 通用
+    case unknown
+    
+    public var isComicFormat: Bool {
+        switch self {
+        case .cbz, .cbr, .zip, .rar, .sevenZip, .pdf, .imageFolder: return true
+        default: return false
+        }
+    }
+    
+    public var isNovelFormat: Bool {
+        switch self {
+        case .epub, .txt, .markdown, .html, .mobi, .azw3: return true
+        default: return false
+        }
+    }
+    
+    public var isArchiveFormat: Bool {
+        switch self {
+        case .cbz, .cbr, .zip, .rar, .sevenZip: return true
+        default: return false
+        }
+    }
+    
+    public var displayName: String {
+        switch self {
+        case .cbz: return "CBZ (Comic ZIP)"
+        case .cbr: return "CBR (Comic RAR)"
+        case .zip: return "ZIP"
+        case .rar: return "RAR"
+        case .sevenZip: return "7z"
+        case .pdf: return "PDF"
+        case .imageFolder: return "图片文件夹"
+        case .epub: return "EPUB"
+        case .txt: return "纯文本"
+        case .markdown: return "Markdown"
+        case .html: return "HTML"
+        case .mobi: return "MOBI"
+        case .azw3: return "AZW3"
+        case .unknown: return "未知"
+        }
+    }
+    
+    /// 尝试从文件扩展名推断格式
+    public static func infer(from url: URL) -> BookFormat {
+        let ext = url.pathExtension.lowercased()
+        return switch ext {
+        case "cbz": .cbz
+        case "cbr": .cbr
+        case "zip": .zip
+        case "rar": .rar
+        case "7z", "7zip": .sevenZip
+        case "pdf": .pdf
+        case "epub": .epub
+        case "txt", "text": .txt
+        case "md", "markdown": .markdown
+        case "html", "htm", "xhtml": .html
+        case "mobi": .mobi
+        case "azw3", "azw": .azw3
+        default: .unknown
+        }
+    }
+}
+
+public enum BookContentType: String, CaseIterable, Codable, Sendable {
+    case comic
+    case novel
+    case mixed
+}
+
+public struct BookMetadata: Codable, Sendable, Hashable {
+    public var language: String?
+    public var publisher: String?
+    public var publishedDate: Date?
+    public var isbn: String?
+    public var series: String?
+    public var seriesIndex: Int?
+    public var descriptionText: String?
+    public var pageCount: Int?
+    public var autoGeneratedTags: [String]
+    public var aiSummary: String?
+    public var rating: Double?  // 0-5
+    
+    public init(
+        language: String? = nil,
+        publisher: String? = nil,
+        publishedDate: Date? = nil,
+        isbn: String? = nil,
+        series: String? = nil,
+        seriesIndex: Int? = nil,
+        descriptionText: String? = nil,
+        pageCount: Int? = nil,
+        autoGeneratedTags: [String] = [],
+        aiSummary: String? = nil,
+        rating: Double? = nil
+    ) {
+        self.language = language
+        self.publisher = publisher
+        self.publishedDate = publishedDate
+        self.isbn = isbn
+        self.series = series
+        self.seriesIndex = seriesIndex
+        self.descriptionText = descriptionText
+        self.pageCount = pageCount
+        self.autoGeneratedTags = autoGeneratedTags
+        self.aiSummary = aiSummary
+        self.rating = rating
+    }
+}
