@@ -433,32 +433,100 @@ public struct EmptyLibraryView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 0) {
             Spacer()
 
-            Image(systemName: "books.vertical")
-                .font(.system(size: 56))
-                .foregroundStyle(.secondary)
+            // MARK: - Hero Illustration
+            heroIllustration
 
-            VStack(spacing: 8) {
+            // MARK: - Title
+            VStack(spacing: 10) {
                 Text("书架是空的")
-                    .font(.title2.bold())
-                Text("导入你的第一本书开始阅读之旅")
-                    .font(.body)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(.primary)
+                Text("导入你的第一本书，开始阅读之旅")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
+            .padding(.top, 32)
 
+            // MARK: - Import Button
             Button(action: onImport) {
-                Label("导入书籍", systemImage: "plus.circle.fill")
+                Label("导入书籍", systemImage: "plus")
                     .font(.headline)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
             }
             .buttonStyle(.borderedProminent)
+            .padding(.horizontal, 40)
+            .padding(.top, 36)
 
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Hero Illustration
+
+    private var heroIllustration: some View {
+        ZStack {
+            // 背景光晕
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.accentColor.opacity(0.12), Color.clear],
+                        center: .center,
+                        startRadius: 10,
+                        endRadius: 120
+                    )
+                )
+                .frame(width: 240, height: 240)
+
+            // 书架预览：三本示意书 + 加号书
+            HStack(spacing: -16) {
+                previewBook(color: .orange.opacity(0.8))
+                previewBook(color: .blue.opacity(0.8))
+                previewBook(color: .purple.opacity(0.8))
+                plusBook
+                    .offset(x: 0, y: -8)
+            }
+        }
+    }
+
+    private func previewBook(color: Color) -> some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(
+                LinearGradient(
+                    colors: [color, color.opacity(0.7)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .frame(width: 44, height: 64)
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(.white.opacity(0.3))
+                    .frame(width: 28, height: 3)
+                    .padding(.top, 8)
+            }
+            .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+    }
+
+    private var plusBook: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.regularMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(.tertiary, style: StrokeStyle(lineWidth: 1.5, dash: [4]))
+                )
+                .frame(width: 44, height: 64)
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
     }
 }
 
