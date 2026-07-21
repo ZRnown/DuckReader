@@ -170,13 +170,6 @@ public struct LibraryView: View {
                 } else {
                     bookGrid
                 }
-                
-                // Smart recommendations
-                if let recommended = viewModel.recommendedNext {
-                    recommendedNextRow(book: recommended)
-                }
-                
-                bookGrid
             }
             .navigationTitle(L10n.appName)
             .searchable(text: $viewModel.searchQuery)
@@ -206,6 +199,11 @@ public struct LibraryView: View {
                         Image(systemName: "gearshape")
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { showFileImporter = true }) {
+                        Image(systemName: "plus")
+                    }
+                }
                 ToolbarItem(placement: .bottomBar) {
                     if viewModel.isImporting {
                         HStack {
@@ -228,6 +226,9 @@ public struct LibraryView: View {
                 LibraryHealthView(books: viewModel.books, onFixComplete: {
                     Task { await viewModel.loadBooks() }
                 })
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
         }
         .task {

@@ -74,12 +74,20 @@ public final class ArchiveParser: ArchiveParserProtocol, @unchecked Sendable {
         // 确定内容类型
         let contentType: BookContentType = format.isComicFormat ? .comic : .novel
         
+        // 提取封面（第一页缩略图）
+        var coverImageData: Data? = nil
+        if pageCount > 0 {
+            coverImageData = try? await extractThumbnail(at: url, pageIndex: 0)
+        }
+        
         return Book(
             title: title,
+            author: nil,
             sourceURL: url,
             format: format,
             contentType: contentType,
             totalPages: pageCount,
+            coverImageData: coverImageData,
             fileSize: fileSize
         )
     }
