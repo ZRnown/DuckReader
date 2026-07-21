@@ -19,8 +19,8 @@ public final class LibraryViewModel: Sendable {
     public var detectedSeries: [String: [Book]] = [:]
     public var seriesNames: [String] { Array(detectedSeries.keys).sorted() }
     
-    private let repository: LibraryRepositoryProtocol
-    private let parser: ArchiveParserProtocol
+    public let repository: LibraryRepositoryProtocol
+    public let parser: ArchiveParserProtocol
     private let statsEngine: ReadingStatsEngine?
     private let achievementEngine: AchievementEngine?
     public let fullTextSearch = FullTextSearch()
@@ -149,90 +149,81 @@ public final class LibraryViewModel: Sendable {
 public struct LibraryView: View {
     @State private var viewModel: LibraryViewModel
     @State private var showFileImporter = false
-    @State private var showSettings = false
-    @State private var showHealth = false
+    @State private var selectedBook: Book?
     
     public init(viewModel: LibraryViewModel) {
         self._viewModel = State(initialValue: viewModel)
     }
     
     public var body: some View {
-        NavigationStack {
-            Group {
-                if viewModel.isLoading && viewModel.books.isEmpty {
-                    LoadingView(message: L10n.loading)
-                } else if let error = viewModel.error {
-                    ErrorView(error: error) {
-                        Task { await viewModel.loadBooks() }
-                    }
-                } else if viewModel.books.isEmpty {
-                    EmptyLibraryView()
-                } else {
-                    bookGrid
-                }
-            }
-            .navigationTitle(L10n.appName)
-            .searchable(text: $viewModel.searchQuery)
-            .onChange(of: viewModel.searchQuery) { _, newValue in
-                // Debounce: wait 300ms of inactivity before searching
-                let query = newValue
-                Task {
-                    try? await Task.sleep(for: .milliseconds(300))
-                    guard viewModel.searchQuery == query else { return }
-                    await viewModel.loadBooks()
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    batchMenu
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    sortMenu
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { showHealth = true }) {
-                        Image(systemName: "heart.text.square")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { showSettings = true }) {
-                        Image(systemName: "gearshape")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { showFileImporter = true }) {
-                        Image(systemName: "plus")
-                    }
-                }
-                ToolbarItem(placement: .bottomBar) {
-                    if viewModel.isImporting {
-                        HStack {
-                            ProgressView()
-                            Text(L10n.importScanning)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-            }
-            .fileImporter(
-                isPresented: $showFileImporter,
-                allowedContentTypes: supportedTypes,
-                allowsMultipleSelection: true
-            ) { result in
-                handleImport(result)
-            }
-            .sheet(isPresented: $showHealth) {
-                LibraryHealthView(books: viewModel.books, onFixComplete: {
+        Group {
+            if viewModel.isLoading && viewModel.books.isEmpty {
+                LoadingView(message: L10n.loading)
+            } else if let error = viewModel.error {
+                ErrorView(error: error) {
                     Task { await viewModel.loadBooks() }
-                })
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
+                }
+            } else if viewModel.books.isEmpty {
+                EmptyLibraryView {
+                    showFileImporter = true
+                }
+            } else {
+                bookGrid
             }
         }
+        .navigationTitle("书架")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $viewModel.searchQuery)
+        .onChange(of: viewModel.searchQuery) { _, newValue in
+            let query = newValue
+            Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                guard viewModel.searchQuery == query else { return }
+                await viewModel.loadBooks()
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                sortMenu
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showFileImporter = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .overlay {
+            if viewModel.isImporting {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text(L10n.importScanning)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(20)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            }
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: supportedTypes,
+            allowsMultipleSelection: true
+        ) { result in
+            handleImport(result)
+        }
+        .navigationDestination(item: $selectedBook) { book in
+            ReaderRouterView(
+                book: book,
+                repository: viewModel.repository,
+                parser: viewModel.parser
+            )
+        }
         .task {
-            await viewModel.loadBooks()
+            if viewModel.books.isEmpty {
+                await viewModel.loadBooks()
+            }
         }
     }
     
@@ -249,6 +240,9 @@ public struct LibraryView: View {
                 ForEach(viewModel.books) { book in
                     BookGridCell(book: book) {
                         Task { await viewModel.toggleFavorite(book) }
+                    }
+                    .onTapGesture {
+                        selectedBook = book
                     }
                     .contextMenu {
                         Button(role: .destructive) {
@@ -400,6 +394,73 @@ extension LibrarySortOption {
     }
 }
 
+// MARK: - Reader Router
+
+/// Routes to the correct reader based on book content type
+struct ReaderRouterView: View {
+    let book: Book
+    let repository: LibraryRepositoryProtocol
+    let parser: ArchiveParserProtocol
+    
+    var body: some View {
+        if book.contentType == .comic {
+            ComicReaderRoute(book: book, repository: repository, parser: parser)
+        } else {
+            NovelReaderRoute(book: book, repository: repository)
+        }
+    }
+}
+
+private struct ComicReaderRoute: View {
+    let book: Book
+    let repository: LibraryRepositoryProtocol
+    let parser: ArchiveParserProtocol
+    @State private var viewModel: ComicReaderViewModel?
+    
+    var body: some View {
+        Group {
+            if let vm = viewModel {
+                ComicReaderView(viewModel: vm)
+            } else {
+                LoadingView(message: L10n.loading)
+            }
+        }
+        .task {
+            if viewModel == nil {
+                let vm = ComicReaderViewModel(
+                    engine: ReadingEngine(parser: parser),
+                    repository: repository
+                )
+                await vm.openBook(book)
+                viewModel = vm
+            }
+        }
+    }
+}
+
+private struct NovelReaderRoute: View {
+    let book: Book
+    let repository: LibraryRepositoryProtocol
+    @State private var viewModel: NovelReaderViewModel?
+    
+    var body: some View {
+        Group {
+            if let vm = viewModel {
+                NovelReaderView(viewModel: vm)
+            } else {
+                LoadingView(message: L10n.loading)
+            }
+        }
+        .task {
+            if viewModel == nil {
+                let vm = NovelReaderViewModel(repository: repository)
+                await vm.openBook(book)
+                viewModel = vm
+            }
+        }
+    }
+}
+
 // MARK: - Batch & Recommendations
 
 extension LibraryView {
@@ -478,12 +539,14 @@ extension LibraryView {
 // MARK: - Preview
 
 #Preview {
-    LibraryView(
-        viewModel: LibraryViewModel(
-            repository: PreviewLibraryRepository(),
-            parser: ArchiveParser()
+    NavigationStack {
+        LibraryView(
+            viewModel: LibraryViewModel(
+                repository: PreviewLibraryRepository(),
+                parser: ArchiveParser()
+            )
         )
-    )
+    }
 }
 
 /// 预览用的假仓库

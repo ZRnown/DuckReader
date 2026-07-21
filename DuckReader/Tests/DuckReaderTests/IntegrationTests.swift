@@ -209,12 +209,11 @@ struct IntegrationTests {
 
     @Test func localization_allKeysExist() async throws {
         // Verify core keys don't crash
-        #expect(!L10n.General.appName.isEmpty)
-        #expect(!L10n.Library.title.isEmpty)
-        #expect(!L10n.Reader.pageOf.isEmpty)
-        #expect(!L10n.Settings.title.isEmpty)
-        #expect(!L10n.Achievements.title.isEmpty)
-        #expect(!L10n.Store.title.isEmpty)
+        #expect(!L10n.appName.isEmpty)
+        #expect(!L10n.libraryTitle.isEmpty)
+        #expect(!L10n.settingsTitle.isEmpty)
+        #expect(!L10n.dashAchievements.isEmpty)
+        #expect(!L10n.storeTitle.isEmpty)
     }
 
     @Test func localization_chineseAndEnglish_accessible() async throws {

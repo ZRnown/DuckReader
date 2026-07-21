@@ -426,17 +426,19 @@ struct FeatureRow: View {
 
 /// 空书架状态视图：引导用户开始导入
 public struct EmptyLibraryView: View {
-    @State private var showImportWizard = false
+    let onImport: () -> Void
 
-    public init() {}
+    public init(onImport: @escaping () -> Void) {
+        self.onImport = onImport
+    }
 
     public var body: some View {
-        VStack(spacing: 28) {
-            Spacer().frame(height: 20)
+        VStack(spacing: 24) {
+            Spacer()
 
             Image(systemName: "books.vertical")
-                .font(.system(size: 64))
-                .foregroundStyle(.blue.gradient)
+                .font(.system(size: 56))
+                .foregroundStyle(.secondary)
 
             VStack(spacing: 8) {
                 Text("书架是空的")
@@ -446,36 +448,17 @@ public struct EmptyLibraryView: View {
                     .foregroundStyle(.secondary)
             }
 
-            VStack(spacing: 12) {
-                QuickActionButton(
-                    icon: "doc.badge.plus",
-                    title: "从文件导入",
-                    subtitle: "EPUB, PDF, CBZ, CBR, TXT",
-                    action: { showImportWizard = true }
-                )
-                QuickActionButton(
-                    icon: "wifi",
-                    title: "WiFi传输",
-                    subtitle: "在浏览器中上传书籍",
-                    action: { showImportWizard = true }
-                )
-                QuickActionButton(
-                    icon: "externaldrive.connected.to.line.below",
-                    title: "连接Calibre",
-                    subtitle: "通过OPDS同步",
-                    action: { showImportWizard = true }
-                )
+            Button(action: onImport) {
+                Label("导入书籍", systemImage: "plus.circle.fill")
+                    .font(.headline)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
             }
-            .padding(.horizontal, 32)
+            .buttonStyle(.borderedProminent)
 
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .sheet(isPresented: $showImportWizard) {
-            ImportWizardView(onComplete: { _ in
-                showImportWizard = false
-            })
-        }
     }
 }
 

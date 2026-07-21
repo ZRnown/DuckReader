@@ -142,10 +142,9 @@ struct ContentView: View {
                         achievementEngine: achievementEngine
                     )
                 )
-                .navigationTitle(L10n.Library.title)
             }
             .tabItem {
-                Label(L10n.Library.title, systemImage: "books.vertical.fill")
+                Label("书架", systemImage: "books.vertical.fill")
             }
 
             // Stats Tab
@@ -154,10 +153,10 @@ struct ContentView: View {
                     statsEngine: statsEngine,
                     achievementEngine: achievementEngine
                 )
-                .navigationTitle(L10n.Achievements.stats)
+                .navigationTitle("统计")
             }
             .tabItem {
-                Label(L10n.Achievements.stats, systemImage: "chart.bar.fill")
+                Label("统计", systemImage: "chart.bar.fill")
             }
 
             // Settings Tab
@@ -165,7 +164,7 @@ struct ContentView: View {
                 SettingsView()
             }
             .tabItem {
-                Label(L10n.Settings.title, systemImage: "gearshape.fill")
+                Label("设置", systemImage: "gearshape.fill")
             }
         }
         .tint(.orange)
